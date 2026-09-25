@@ -543,11 +543,16 @@ const DLONG={'25/09':'Ven. 25 sept.','26/09':'Sam. 26 sept.','27/09':'Dim. 27 se
 const [D1,D2,D3]=DATES;
 /* Règlement FRMT 2025-2026 : composition des rencontres, format des parties, points */
 const isU12=c=>/^u12/.test(c.id);const PCACHE={};
-function parts(c){const k=c.id+'|'+((S&&S.cfg&&S.cfg.u12d)||1);if(PCACHE[k])return PCACHE[k];let P;
+const GRP={f14:'13-14 ans Filles',g14:'13-14 ans Garçons',f18:'15-18 ans Filles',g18:'15-18 ans Garçons'};
+const COMPS={'2-1':'2 simples + 1 double','3-1':'3 simples + 1 double','4-1':'4 simples + 1 double','3-2':'3 simples + 2 doubles','4-2':'4 simples + 2 doubles'};
+function compOf(c){const v=((S&&S.cfg&&S.cfg.comp)||{})[c.id.slice(0,3)]||'2-1';const [a,b]=v.split('-').map(Number);return [Math.min(4,Math.max(2,a||2)),Math.min(2,Math.max(1,b||1))];}
+function parts(c){const k=c.id+'|'+((S&&S.cfg&&S.cfg.u12d)||1)+'|'+(isU12(c)?'':compOf(c).join('-'));if(PCACHE[k])return PCACHE[k];let P;
   if(isU12(c)){P=[['11G1','11 ans Garçons n°1'],['11G2','11 ans Garçons n°2'],['11F2','11 ans Filles n°2'],['12F1','12 ans Filles n°1'],['12F2','12 ans Filles n°2'],['11F1','11 ans Filles n°1'],['12G1','12 ans Garçons n°1'],['12G2','12 ans Garçons n°2']]
       .map(([slot,l])=>({slot,l,t:'S',pts:1,tb:5,stb:true,noad:true}));
     const nd=+((S&&S.cfg&&S.cfg.u12d)||1);(nd===2?[['D1','Double garçons'],['D2','Double filles']]:[['D1','Double']]).forEach(([slot,l])=>P.push({slot,l,t:'D',pts:2,tb:5,stb:true,noad:true}));}
-  else P=[{slot:'S2',l:'Simple n°2',t:'S',pts:1,tb:6,stb:false,noad:false},{slot:'S1',l:'Simple n°1',t:'S',pts:1,tb:6,stb:false,noad:false},{slot:'D1',l:'Double',t:'D',pts:2,tb:6,stb:true,noad:true}];
+  else{const [nS,nD]=compOf(c);const S_=n=>({slot:'S'+n,l:'Simple n°'+n,t:'S',pts:1,tb:6,stb:false,noad:false}),D_=n=>({slot:'D'+n,l:nD>1?'Double n°'+n:'Double',t:'D',pts:2,tb:6,stb:true,noad:true});
+    /* index fixes : S2, S1, D1 (déjà utilisés par les résultats), puis S3, S4, D2 */
+    P=[S_(2),S_(1),D_(1)];if(nS>=3)P.push(S_(3));if(nS>=4)P.push(S_(4));if(nD>=2)P.push(D_(2));}
   return PCACHE[k]=P;}
 const DECIDER={slot:'X',l:'Double décisif (super tie-break)',t:'X',pts:0,tb:6,stb:true,noad:true,one:true};
 const catOfId=id=>CATMAP[String(id).split('-')[0]];
@@ -556,6 +561,7 @@ function partOf(c,i){const P=parts(c);return i<P.length?P[i]:DECIDER;}
 const PL=c=>parts(c).map(x=>x.l);
 const PLid=id=>PL(catOfId(id)).concat(isKO(id)?[DECIDER.l]:[]);
 function orderIdx(m){const P=parts(m.cat),idx=P.map((_,i)=>i);
+  if(!isU12(m.cat)){const rk={S4:0,S3:1,S2:2,S1:3,D1:4,D2:5};idx.sort((a,b)=>rk[P[a].slot]-rk[P[b].slot]);}
   if(isU12(m.cat)&&isKO(m.id)){const ord=['11F1','11F2','11G1','11G2','12F1','12F2','12G1','12G2'];idx.sort((a,b)=>{const x=ord.indexOf(P[a].slot),y=ord.indexOf(P[b].slot);return (x<0?99:x)-(y<0?99:y)||a-b;});}
   if(isKO(m.id))idx.push(P.length);return idx;}
 
@@ -734,7 +740,7 @@ function compoHTML(c,t){const k=rkey(c,t),P=parts(c),ro=canCompo(t)?'':' disable
   const row=x=>{const v=compoVal(c,t,x.slot);
     if(x.t==='D'){const a=String(v).split('/');return `<span>${h(x.l)}</span><span class="dd"><select${ro} data-cp="${h(k)}" data-slot="${x.slot}" data-side="0">${opts(a[0]||'')}</select><select${ro} data-cp="${h(k)}" data-slot="${x.slot}" data-side="1">${opts(a[1]||'')}</select></span>`;}
     return `<span>${h(x.l.replace(/ ans (Garçons|Filles)/,(m0,g)=>' '+g[0]))}</span><select${ro} data-cp="${h(k)}" data-slot="${x.slot}">${opts(v,/^\d\d[FG]/.test(x.slot)?x.slot.slice(0,3):'')}</select>`;};
-  const order=isU12(c)?['11G1','11G2','11F1','11F2','12G1','12G2','12F1','12F2','D1','D2']:['S1','S2','D1'];
+  const order=isU12(c)?['11G1','11G2','11F1','11F2','12G1','12G2','12F1','12F2','D1','D2']:['S1','S2','S3','S4','D1','D2'];
   return `<div class="compo"><b class="ct">Numérotation pour les rencontres${canCompo(t)?'':' (lecture seule)'}</b><div class="cgrid2">${order.map(sl=>P.find(x=>x.slot===sl)).filter(Boolean).map(row).join('')}</div></div>`;}
 function compoRO(c,t){const P=parts(c);const L=P.map(x=>{const v=compoVal(c,t,x.slot);if(!v)return '';return `<li>${h(x.l)} : ${h(pnames(c,t,v))}</li>`;}).filter(Boolean);
   return L.length?`<div class="compo"><b class="ct">Numérotation</b><ul style="margin:0;padding-left:18px;font-size:12.5px">${L.join('')}</ul></div>`:'';}
@@ -1499,6 +1505,7 @@ async function syncNow(manual){if(!syncReady()){if(manual)toast("Renseignez l'ad
       if((x.ts||0)>(S.rosterTs[x.k]||0)){S.roster[x.k]=Array.from(x.names||[],v=>String(v||''));if(x.tags)S.rosterTag[x.k]=Array.from(x.tags,v=>String(v||''));if(x.compo)S.compo[x.k]=x.compo;if(x.nb)S.nbj[x.k]=x.nb;S.rosterTs[x.k]=x.ts;rosterChanged=true;}
       if(S.rosterTs[x.k]===x.ts)S.sync.sentR[x.k]=x.ts;});
     (d.fin||[]).forEach(x=>{if(!x||x.k==='reset')return;
+      if(x.k==='cfg:comp'){if((x.ts||0)>(S.finTs[x.k]||0)){try{S.cfg=Object.assign({},S.cfg,{comp:JSON.parse(x.v||'{}')});S.fin[x.k]=x.v;S.finTs[x.k]=x.ts;rosterChanged=true;}catch(e){}}if(S.finTs[x.k]===x.ts)S.sync.sentF[x.k]=x.ts;return;}
       if(x.k==='cfg:u12d'){if((x.ts||0)>(S.finTs[x.k]||0)&&(+x.v===1||+x.v===2)){S.cfg=Object.assign({},S.cfg,{u12d:+x.v});S.fin[x.k]=x.v;S.finTs[x.k]=x.ts;rosterChanged=true;}if(S.finTs[x.k]===x.ts)S.sync.sentF[x.k]=x.ts;return;}
       if(x.k==='cfg:need'){if((x.ts||0)>(S.finTs[x.k]||0)&&(+x.v===1||+x.v===2)){S.need=+x.v;S.fin[x.k]=x.v;S.finTs[x.k]=x.ts;rosterChanged=true;}if(S.finTs[x.k]===x.ts)S.sync.sentF[x.k]=x.ts;return;}
       if(x.k==='cfg:fmt'){if((x.ts||0)>(S.finTs[x.k]||0)&&FORMATS[+x.v]){S.fmt=+x.v;S.fin[x.k]=x.v;S.finTs[x.k]=x.ts;rosterChanged=true;}if(S.finTs[x.k]===x.ts)S.sync.sentF[x.k]=x.ts;return;}if(oldTs(x.ts,'hours'))return;if(typeof x.k==='string'&&x.k.slice(0,2)==='h:'){const id=x.k.slice(2);if(!getMatch(id))return;
@@ -1760,9 +1767,11 @@ function rulesPanel(){const cfg=S.cfg||{};const ed=canAdmin();
     <li>En phase finale, la rencontre s'arrête dès que la victoire est mathématiquement acquise.</li></ul>
    ${ed?`<label style="font-size:13.5px">Nombre de doubles en 11-12 ans : <select id="u12d"><option value="1"${+cfg.u12d!==2?' selected':''}>1 double</option><option value="2"${+cfg.u12d===2?' selected':''}>2 doubles (garçons, filles)</option></select></label>`:''}
    <h4>13-14 ans et 15-18 ans (filles et garçons)</h4>
-   <ul><li><b>Composition</b> : simple n°2, puis simple n°1, puis le double (après 30 min). Numéros selon le classement adulte du 31 août 2026. Une joueuse ou un joueur manquant : équipe disqualifiée.</li>
+   <ul><li><b>Composition</b> : ${Object.keys(GRP).map(g=>`${GRP[g]} : <b>${COMPS[((S.cfg||{}).comp||{})[g]||'2-1']}</b>`).join(' · ')}. Ordre : simples du numéro le plus élevé au n°1, puis ${'le'} double (après 30 min). Numéros selon le classement adulte du 31 août 2026. Une joueuse ou un joueur manquant : équipe disqualifiée.</li>
     <li><b>Simples</b> : au meilleur des 3 sets, jeu décisif à 6-6 dans les 3 sets.</li>
     <li><b>Double</b> : 2 sets gagnants, jeu décisif à 6-6, 3e set en super tie-break, point décisif (No Ad).</li></ul>
+   ${ed?`<div class="cgrid2" style="max-width:520px;margin:6px 0">${Object.keys(GRP).map(g=>`<span>${GRP[g]}</span><select data-comp="${g}">${Object.entries(COMPS).map(([v,l])=>`<option value="${v}"${(((S.cfg||{}).comp||{})[g]||'2-1')===v?' selected':''}>${l}</option>`).join('')}</select>`).join('')}</div>
+   <p class="legend">Composition des rencontres par catégorie, envoyée à tous les appareils. Les résultats déjà saisis (simples n°1, n°2 et double) sont conservés.</p>`:''}
    <h4>Résultats et classement (toutes catégories)</h4>
    ${tbl([['Rencontre','1 point par simple gagné, 2 points par double gagné'],['Égalité en poule','match nul'],['Égalité en élimination directe','double décisif en super tie-break à 10 points, 15 min après les doubles'],['Classement','victoire 3 pts · nul 2 pts · défaite 1 pt · forfait ou disqualification −1 pt'],['2 équipes à égalité','confrontation directe'],['3 équipes ou plus','différence de matchs (points) gagnés/perdus, puis % de sets, puis % de jeux, puis confrontation directe des 2 dernières'],['Super tie-break','compte pour 1 set et 1-0 en jeux'],['Forfait','rencontre perdue, tous les matchs 6-0 6-0 ; à partir du 2e forfait, forfait général'],['Abandon sur blessure','score complété (ex. 6-1 2-0 enregistré 6-1 6-0)']])}
    <details style="margin-top:8px"><summary>Autres dispositions</summary><ul>
@@ -1862,6 +1871,7 @@ main.addEventListener('change',e=>{const t=e.target;
   if(t.id==='shdate'){S.sh.date=t.value;S.sh.lieu='';save();renderShare();return;}
   if(t.id==='shlieu'){S.sh.lieu=t.value;save();renderShare();return;}
   if(t.id==='shmine'){S.sh.mine=t.checked;save();renderShare();return;}
+  if(t.dataset.comp){if(!canAdmin())return;S.cfg=Object.assign({},S.cfg,{comp:Object.assign({},(S.cfg||{}).comp,{[t.dataset.comp]:t.value})});if(syncReady()){S.fin['cfg:comp']=JSON.stringify(S.cfg.comp);S.finTs['cfg:comp']=now();}save();render();toast(GRP[t.dataset.comp]+' : '+COMPS[t.value]);return;}
   if(t.id==='u12d'){if(!canAdmin())return;S.cfg=Object.assign({},S.cfg,{u12d:+t.value});if(syncReady()){S.fin['cfg:u12d']=String(S.cfg.u12d);S.finTs['cfg:u12d']=now();}save();render();toast('Composition 11-12 ans mise à jour');return;}
   if(t.id==='need'){if(!canAdmin())return;S.need=+t.value;if(syncReady()){S.fin['cfg:need']=String(S.need);S.finTs['cfg:need']=now();}save();renderGlobal();return;}
   if(t.id==='fmt'){S.fmt=+t.value;if(syncReady()&&S.sync.role==='admin'){S.fin['cfg:fmt']=String(S.fmt);S.finTs['cfg:fmt']=now();}save();renderGlobal();return;}
