@@ -502,6 +502,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .auth b{color:var(--ink);font-weight:600}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
 .dot.on{background:var(--win)}.dot.mid{background:var(--gold)}.dot.off{background:var(--line)}
+.srvb{display:inline-block;margin-left:6px;font-size:.85em;animation:none}
+.lsrv{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;margin:4px 0 8px;font-size:13.5px;color:#c9d3de}
+.lsrv .btn.on{background:var(--ball);color:#10233a;border-color:var(--ball)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -937,7 +940,7 @@ function roInner(m){const r=S.res[m.id]||{};if(r.wo)return '<div>Victoire par fo
   const L=orderIdx(m).map(i=>{const lab=P[i],x=parts(m.cat).length;if(!String((r.p||[])[i]||'').trim()&&!isActive(S.live[m.id+'#'+i]))return '';
     const sc=String((r.p||[])[i]||'').trim(),nn=effN(m,i),a=pnames(m.cat,m.t1,nn[0]),b=pnames(m.cat,m.t2,nn[1]);
     const live=isActive(S.live[m.id+'#'+i]),st=sc?partie(sc,i>=x?1:2,i>=x):null;
-    const res=live?`<b style="color:#e0493a">● en direct ${h(liveTxt(S.live[m.id+'#'+i],replay(S.live[m.id+'#'+i])))}</b>`:sc?(st&&st.w?`<b>${h(sc)}</b>`:`<b style="color:#e0493a">● ${h(fmtScore(sc))}</b>`):'<span style="opacity:.7">à jouer</span>';
+    const res=live?`<b style="color:#e0493a">● en direct ${h(liveTxt(S.live[m.id+'#'+i],replay(S.live[m.id+'#'+i])))}${(r=>r.srv?' · 🎾 '+h(srvName(m,i,r)):'')(replay(S.live[m.id+'#'+i]))}</b>`:sc?(st&&st.w?`<b>${h(sc)}</b>`:`<b style="color:#e0493a">● ${h(fmtScore(sc))}</b>`):'<span style="opacity:.7">à jouer</span>';
     const w1=st&&st.w===1,w2=st&&st.w===2;
     return `<div>${h(lab)} : ${w1?'<b>':''}${h(a||'…')}${w1?'</b>':''} – ${w2?'<b>':''}${h(b||'…')}${w2?'</b>':''} · ${res}</div>`;}).join('');return L||'<span>Résultat pas encore saisi.</span>';}
 function card(m,tag,when){const r=S.res[m.id]||{p:[],wo:''};const P=PLid(m.id);
@@ -988,7 +991,7 @@ function applyLock(el,id){const P=PLid(id),act=[];const ex=ev(id);const xb=el.qu
     const b=pb.querySelector('[data-live]');if(b){b.hidden=dl||vl;b.textContent=on?(liveForeign(L)?'👁 Suivre':'▶ Reprendre'):'▶ Direct';}});
   el.classList.toggle('onair',act.length>0);const bd=el.querySelector('[data-lvb]');if(bd)bd.hidden=!act.length;
   const wo=el.querySelector('select[data-k="wo"]');if(wo)wo.disabled=act.length>0||doneLock(id,'w')||valLock(id);const cl=el.querySelector('[data-clear]');if(cl)cl.disabled=act.length>0;
-  const st=el.querySelector('[data-lvs]');if(st)st.innerHTML=act.map(x=>`<div role="button" tabindex="0" data-live="${id}|${x.i}"><b>EN DIRECT</b>${h(x.lab)} : ${h(liveTxt(x.L,replay(x.L)))}</div>`).join('');}
+  const st=el.querySelector('[data-lvs]');if(st)st.innerHTML=act.map(x=>`<div role="button" tabindex="0" data-live="${id}|${x.i}"><b>EN DIRECT</b>${h(x.lab)} : ${h(liveTxt(x.L,replay(x.L)))}${(r=>r.srv?' · 🎾 '+h(srvName(getMatch(id),x.i,r)):'')(replay(x.L))}</div>`).join('');}
 
 function standTable(cat,pl,st){const two=cat.type==='2P';
   const rows=st.rows.map((r,i)=>{const cls=two?(i<2?'q':''):(st.complete?(i===0?'g1':i===1?'g2':''):'');
@@ -1332,29 +1335,32 @@ function ovClose(){const was=OVMODE;OVMODE='';OV.hidden=true;OV.innerHTML='';doc
 let LIVE=null,WL=null;
 async function wake(){try{WL=await navigator.wakeLock.request('screen');}catch(e){}}
 function relWake(){try{WL&&WL.release();}catch(e){}WL=null;}
-function replay(L){let sets=[],g=[0,0],p=[0,0],w=0;const TB=+L.tb||6,nd=L.one?1:2;
+function replay(L){let sets=[],g=[0,0],p=[0,0],w=0,sg=(+L.srv===2)?2:1;const TB=+L.tb||6,nd=L.one?1:2;
   const sw=()=>[0,1].map(k=>sets.filter(s=>s[k]>s[1-k]).length);
   const isSTB=()=>{const x=sw();return !!L.one||(!!L.stb&&sets.length===2&&x[0]===1&&x[1]===1);};
   for(const pt of L.pts){if(w)break;const i=pt-1,o=1-i,stb=isSTB(),tb=stb||(g[0]===TB&&g[1]===TB);p[i]++;
-    if(tb){const tg=stb?10:7;if(p[i]>=tg&&p[i]-p[o]>=2){let s;if(stb){s=[p[0],p[1]];}else{s=[g[0],g[1]];s[i]++;s.tb=Math.min(p[0],p[1]);}sets.push(s);g=[0,0];p=[0,0];}}
-    else if(L.noad?p[i]>=4:(p[i]>=4&&p[i]-p[o]>=2)){g[i]++;p=[0,0];if(g[i]>=6&&g[i]-g[o]>=2){sets.push([g[0],g[1]]);g=[0,0];}}
+    if(tb){const tg=stb?10:7;if(p[i]>=tg&&p[i]-p[o]>=2){let s;if(stb){s=[p[0],p[1]];}else{s=[g[0],g[1]];s[i]++;s.tb=Math.min(p[0],p[1]);}sets.push(s);g=[0,0];p=[0,0];sg=3-sg;}}
+    else if(L.noad?p[i]>=4:(p[i]>=4&&p[i]-p[o]>=2)){g[i]++;p=[0,0];sg=3-sg;if(g[i]>=6&&g[i]-g[o]>=2){sets.push([g[0],g[1]]);g=[0,0];}}
     const x=sw();if(x[0]===nd)w=1;else if(x[1]===nd)w=2;}
-  const stb=!w&&isSTB();return {sets,g,p,w,stb,tb:!w&&(stb||(g[0]===TB&&g[1]===TB))};}
+  const stb=!w&&isSTB(),tbn=!w&&(stb||(g[0]===TB&&g[1]===TB)),n=p[0]+p[1];
+  const srv=w?0:(tbn&&n>0?(Math.floor((n+1)/2)%2===0?sg:3-sg):sg);
+  return {sets,g,p,w,stb,tb:tbn,srv};}
 const scoreStr=R=>R.sets.map(s=>`${s[0]}-${s[1]}${s.tb!==undefined?'('+s.tb+')':''}`).join(' ');
 function ptLabel(R,sd,L){const me=R.p[sd],ot=R.p[1-sd];if(R.tb)return String(me);
   if(!L.noad&&me>=3&&ot>=3)return me>ot?'AV':'40';return ['0','15','30','40'][Math.min(me,3)];}
+function srvName(m,i,R){if(!m||!R||!R.srv)return '';const nn=effN(m,i),t=R.srv===1?m.t1:m.t2;return pnames(m.cat,t,nn[R.srv-1])||t;}
 function liveTxt(L,R){const cur=R.tb?`jeu décisif ${R.p[0]}-${R.p[1]}`:`${R.g[0]}-${R.g[1]} (${ptLabel(R,0,L)}-${ptLabel(R,1,L)})`;return [scoreStr(R),R.stb?`super tie-break ${R.p[0]}-${R.p[1]}`:cur].filter(Boolean).join(' · ');}
 function openLive(id,i){const k=id+'#'+i,L0=S.live[k];
   if(!canEditM(getMatch(id))){if(L0&&L0.pts&&L0.pts.length){LIVE={id,i,ro:true};ovOpen('live');drawLive();liveSync(false);}else toast('Profil consultation : le comptage des points est réservé à la saisie');return;}
   if(isActive(L0)&&liveForeign(L0)){LIVE={id,i,ro:true};ovOpen('live');drawLive();liveSync(false);return;}
   const r=S.res[id];if(r&&r.wo){toast('Rencontre gagnée par forfait');return;}
   if(doneLock(id,String(i))){toast("Partie terminée : seul l'organisateur peut la modifier");return;}
-  {const pc=partOf(catOfId(id),+i);S.live[k]=L0||{pts:[],stb:pc.stb,noad:pc.noad,tb:pc.tb,one:!!pc.one,w:''};}fillPlanned(id,+i);S.live[k].own=S.devId;delete S.live[k].stop;LIVE={id,i};ovOpen('live');drawLive();wake();}
+  {const pc=partOf(catOfId(id),+i);S.live[k]=L0||{pts:[],stb:pc.stb,noad:pc.noad,tb:pc.tb,one:!!pc.one,srv:1,w:''};}fillPlanned(id,+i);S.live[k].own=S.devId;delete S.live[k].stop;LIVE={id,i};ovOpen('live');drawLive();wake();}
 function drawLive(){const {id,i}=LIVE,m=getMatch(id),c=m.cat,L=S.live[id+'#'+i],R=replay(L);
   const lab=partOf(c,i).l,r=S.res[id]||{},nm=effN(m,i);
   const team=[m.t1,m.t2],who=[pnames(c,m.t1,nm[0])||m.t1,pnames(c,m.t2,nm[1])||m.t2];
   const cols=R.sets.length+(R.w?0:1);
-  const row=sd=>`<div class="sbr${R.w===sd+1?' win':''}" style="--n:${cols}"><span class="nm">${h(who[sd])}${who[sd]!==team[sd]?`<small>${h(team[sd])}</small>`:''}</span>${R.sets.map(s=>`<span class="st">${s[sd]}${s.tb!==undefined&&s[sd]<s[1-sd]?`<sup>${s.tb}</sup>`:''}</span>`).join('')}${R.w?'':`<span class="st cur">${R.stb?'':R.g[sd]}</span>`}<span class="${R.w?'st':'pt'}">${R.w?(R.w===sd+1?'✓':''):ptLabel(R,sd,L)}</span></div>`;
+  const row=sd=>`<div class="sbr${R.w===sd+1?' win':''}" style="--n:${cols}"><span class="nm">${h(who[sd])}${!R.w&&R.srv===sd+1?'<span class="srvb" title="Au service">🎾</span>':''}${who[sd]!==team[sd]?`<small>${h(team[sd])}</small>`:''}</span>${R.sets.map(s=>`<span class="st">${s[sd]}${s.tb!==undefined&&s[sd]<s[1-sd]?`<sup>${s.tb}</sup>`:''}</span>`).join('')}${R.w?'':`<span class="st cur">${R.stb?'':R.g[sd]}</span>`}<span class="${R.w?'st':'pt'}">${R.w?(R.w===sd+1?'✓':''):ptLabel(R,sd,L)}</span></div>`;
   let stt='';if(R.w)stt=`Partie gagnée par ${who[R.w-1]} : ${scoreStr(R)}. Score enregistré.`;
   else if(R.stb)stt='Super tie-break en 10 points';else if(R.tb)stt='Jeu décisif en 7 points';
   else if(!L.noad&&R.p[0]>=3&&R.p[1]>=3)stt=R.p[0]===R.p[1]?'Égalité':'Avantage '+who[R.p[0]>R.p[1]?0:1];
@@ -1362,7 +1368,7 @@ function drawLive(){const {id,i}=LIVE,m=getMatch(id),c=m.cat,L=S.live[id+'#'+i],
   OV.innerHTML=`<div class="ov-h"><div><b style="color:#fff;font-size:15px">${h(lab)}</b><br>${h(catLabel(c))} · ${h(m.t1)} contre ${h(m.t2)}</div><button class="ov-x" data-ov="close">Fermer</button></div>
    <div class="sbd">${row(0)}${row(1)}</div><div class="lstat">${h(stt)}</div>
    ${LIVE.ro?`<div class="lro">👁 Suivi en direct, lecture seule.<br>Les points sont comptés sur l'appareil « ${h(L.dev||'autre appareil')} », mis à jour ${ago(L.ts)}.${R.w?'<br><b style="color:var(--ball)">Partie terminée.</b>':''}${canAdmin()&&!R.w?'<br><button class="btn" data-lint style="margin-top:12px">⏹ Interrompre ce direct (organisateur)</button>':''}</div>`:`<div class="lbtns"><button class="lbtn" data-lp="1"${R.w?' disabled':''}>Point pour<b>${h(who[0])}</b></button><button class="lbtn" data-lp="2"${R.w?' disabled':''}>Point pour<b>${h(who[1])}</b></button></div>
-   <div class="lopts"><label><input type="checkbox" data-lopt="stb"${L.stb?' checked':''}> 3e set en super tie-break</label><label><input type="checkbox" data-lopt="noad"${L.noad?' checked':''}> Point décisif à 40-40</label></div>
+   ${LIVE.ro||R.w?'':`<div class="lsrv">${L.pts.length?`🎾 Au service : <b style="color:#fff">${h(who[R.srv-1]||'')}</b> <button class="btn" data-lswap>⇄ Corriger le serveur</button>`:`Qui sert en premier ? <button class="btn${(+L.srv||1)===1?' on':''}" data-lsrv="1">${h(who[0])}</button><button class="btn${+L.srv===2?' on':''}" data-lsrv="2">${h(who[1])}</button>`}</div>`}<div class="lopts"><label><input type="checkbox" data-lopt="stb"${L.stb?' checked':''}> 3e set en super tie-break</label><label><input type="checkbox" data-lopt="noad"${L.noad?' checked':''}> Point décisif à 40-40</label></div>
    <div class="lact"><button class="btn" data-lundo${L.pts.length?'':' disabled'}>↶ Annuler le dernier point</button><button class="btn" data-lreset${L.pts.length?'':' disabled'}>Recommencer la partie</button><button class="btn" data-lstop>⏹ Arrêter le direct</button></div>`}`;}
 function afterLive(){const {id,i}=LIVE,L=S.live[id+'#'+i],R=replay(L);L.ts=Date.now();L.dev=S.sync.device||'';schedLive();const r=S.res[id]=S.res[id]||{p:[],wo:''};r.p=r.p||[];
   if(R.w){const str=scoreStr(R);if(r.p[i]!==str){r.p[i]=str;L.w=str;S.ts[id]=now();markDirty(id,String(i));}}
@@ -1433,6 +1439,8 @@ OV.addEventListener('click',e=>{const t=e.target;
     if(t.closest('[data-lstop]')){if(confirm('Arrêter le comptage en direct ? Les points de cette partie seront effacés et la saisie débloquée.')){L.pts=[];afterLive();ovClose();}return;}
     const lp=t.closest('[data-lp]');if(lp){if(lp.disabled)return;L.pts.push(+lp.dataset.lp);try{navigator.vibrate&&navigator.vibrate(replay(L).w?[60,40,60]:15);}catch(x){}afterLive();return;}
     if(t.closest('[data-lundo]')){L.pts.pop();afterLive();return;}
+    const ls=t.closest('[data-lsrv]');if(ls){L.srv=+ls.dataset.lsrv;afterLive();return;}
+    if(t.closest('[data-lswap]')){L.srv=(+L.srv===2)?1:2;afterLive();toast('Serveur corrigé');return;}
     if(t.closest('[data-lreset]')){if(confirm('Effacer tous les points de cette partie ?')){L.pts=[];afterLive();}return;}}
   if(OVMODE==='qr'){const q=t.closest('[data-qr]');if(q&&QRC)QRC[q.dataset.qr]();}
   if(OVMODE==='jaall'){const b=t.closest('[data-jx]');if(!b)return;const [a,v]=b.dataset.jx.split('|');
@@ -1551,10 +1559,10 @@ main.addEventListener('focusout',()=>setTimeout(()=>{if(PENDING_RENDER&&!(docume
 /* ----- Direct : partage des scores point par point ----- */
 let LSYNC=false,liveT=null;
 const liveKeys=()=>Object.keys(S.live).filter(k=>S.live[k]&&S.live[k].ts&&S.live[k].ts!==S.sync.sentL[k]);
-function livePayload(){return liveKeys().map(k=>{const L=S.live[k];return {k,s:(L.pts||[]).join(''),stb:L.stb?1:0,noad:L.noad?1:0,ts:L.ts,dev:L.dev||S.sync.device||'',own:L.own||'',stop:L.stop?1:0,tb:L.tb||6,one:L.one?1:0,d:replay(L).w?1:0};});}
+function livePayload(){return liveKeys().map(k=>{const L=S.live[k];return {k,s:(L.pts||[]).join(''),stb:L.stb?1:0,noad:L.noad?1:0,ts:L.ts,dev:L.dev||S.sync.device||'',own:L.own||'',stop:L.stop?1:0,tb:L.tb||6,one:L.one?1:0,srv:+L.srv||1,d:replay(L).w?1:0};});}
 function schedLive(){if(!syncReady())return;clearTimeout(liveT);liveT=setTimeout(()=>liveSync(false),1200);}
 function applyLive(map){let ch=[];Object.values(map||{}).forEach(x=>{if(!x||!x.k||(S.resetSec&&(x.ts||0)<S.resetSec*1000))return;const id=x.k.split('#')[0];if(!getMatch(id))return;const cur=S.live[x.k];
-    if(!cur||(cur.ts||0)<x.ts){S.live[x.k]={pts:String(x.s||'').split('').map(Number).filter(v=>v===1||v===2),stb:!!x.stb,noad:!!x.noad,w:cur?cur.w||'':'',ts:x.ts,dev:x.dev||'',own:x.own||'',stop:x.stop?1:0,tb:+x.tb||6,one:!!x.one};ch.push(x.k);
+    if(!cur||(cur.ts||0)<x.ts){S.live[x.k]={pts:String(x.s||'').split('').map(Number).filter(v=>v===1||v===2),stb:!!x.stb,noad:!!x.noad,w:cur?cur.w||'':'',ts:x.ts,dev:x.dev||'',own:x.own||'',stop:x.stop?1:0,tb:+x.tb||6,one:!!x.one,srv:+x.srv||1};ch.push(x.k);
       if(x.stop&&OVMODE==='live'&&LIVE&&!LIVE.ro&&LIVE.id+'#'+LIVE.i===x.k){ovClose();toast("⏹ Direct interrompu par l'organisateur");}}
     if(S.live[x.k].ts===x.ts)S.sync.sentL[x.k]=x.ts;});
   const old=Date.now()-24*3600e3;Object.keys(S.live).forEach(k=>{if((S.live[k].ts||0)<old&&!(LIVE&&k===LIVE.id+'#'+LIVE.i))delete S.live[k];});
@@ -1588,7 +1596,7 @@ function liveEntries(){const out=[],now_=Date.now();
   return out.sort((a,b)=>(!!a.R.w-!!b.R.w)||b.ts-a.ts);}
 function liveCard(x){const {m,c,L,R,i}=x;const r=S.res[m.id]||{},nm=effN(m,i);const team=[m.t1,m.t2],who=[pnames(c,m.t1,nm[0])||m.t1,pnames(c,m.t2,nm[1])||m.t2];
   const lab=partOf(c,i).l,cols=R.sets.length+(R.w?0:1),e=ev(m.id),mine=myM(m);
-  const row=sd=>`<div class="lr${R.w===sd+1?' win':''}${isMine(team[sd])?' me-r':''}" style="--n:${cols}"><span class="nm">${h(who[sd])}${who[sd]!==team[sd]?` <small>${h(team[sd])}</small>`:''}</span>${R.sets.map(s=>`<span class="st">${s[sd]}${s.tb!==undefined&&s[sd]<s[1-sd]?`<sup>${s.tb}</sup>`:''}</span>`).join('')}${R.w?'':`<span class="st cur">${R.stb?'':R.g[sd]}</span>`}<span class="${R.w?'st':'pt'}">${R.w?(R.w===sd+1?'✓':''):ptLabel(R,sd,L)}</span></div>`;
+  const row=sd=>`<div class="lr${R.w===sd+1?' win':''}${isMine(team[sd])?' me-r':''}" style="--n:${cols}"><span class="nm">${h(who[sd])}${!R.w&&R.srv===sd+1?'<span class="srvb" title="Au service">🎾</span>':''}${who[sd]!==team[sd]?` <small>${h(team[sd])}</small>`:''}</span>${R.sets.map(s=>`<span class="st">${s[sd]}${s.tb!==undefined&&s[sd]<s[1-sd]?`<sup>${s.tb}</sup>`:''}</span>`).join('')}${R.w?'':`<span class="st cur">${R.stb?'':R.g[sd]}</span>`}<span class="${R.w?'st':'pt'}">${R.w?(R.w===sd+1?'✓':''):ptLabel(R,sd,L)}</span></div>`;
   const stt=R.w?`Gagnée par ${who[R.w-1]}`:R.stb?'Super tie-break':R.tb?'Jeu décisif':(!L.noad&&R.p[0]>=3&&R.p[1]>=3?(R.p[0]===R.p[1]?'Égalité':'Avantage '+who[R.p[0]>R.p[1]?0:1]):(L.noad&&R.p[0]===3&&R.p[1]===3?'Point décisif':''));
   const where=m.lieu?venueName(m.lieu):venueName(finLieu(c));
   return `<div class="lc${R.w?' fin':''}${mine?' mine':''}" role="button" tabindex="0" data-go="${m.id}" data-gocat="${c.id}">
