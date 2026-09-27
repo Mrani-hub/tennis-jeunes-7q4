@@ -913,7 +913,10 @@ function evalR(r,c,id){c=c||catOfId(id)||CATS[0];const P=parts(c),nb=P.length,LL
     if(st&&st.w){z.dec++;if(st.w===1)z.p1+=x.pts;else z.p2+=x.pts;}else rem+=x.pts;});
   if(z.p1>z.p2+rem)z.w=1;else if(z.p2>z.p1+rem)z.w=2;
   else if(rem===0){if(ko){z.x=true;const st=partie((r.p||[])[nb],1,true);if(st){z.any=true;z.s1+=st.s1;z.s2+=st.s2;z.j1+=st.j1;z.j2+=st.j2;if(st.w)z.w=st.w;}}else z.draw=true;}
-  z.done=z.draw||(z.w>0&&(ko||rem===0));return z;}
+  z.done=z.draw||(z.w>0&&(ko||rem===0));
+  const gs=offScore(r.g);if(gs){z.any=true;z.off=true;z.p1=gs[0];z.p2=gs[1];z.w=gs[0]>gs[1]?1:gs[1]>gs[0]?2:0;z.draw=!ko&&gs[0]===gs[1];z.done=z.draw||z.w>0;z.wo=0;if(z.done)z.dec=Math.max(z.dec,0);}
+  return z;}
+function offScore(g){const m=String(g||'').replace(/,/g,'.').match(/^\s*(\d+(?:\.\d+)?)\s*[-:\/]\s*(\d+(?:\.\d+)?)\s*$/);return m?[+m[1],+m[2]]:null;}
 const ev=id=>evalR(S.res[id],catOfId(id),id);
 
 function standings(cat,pl){
@@ -1040,6 +1043,7 @@ function card(m,tag,when){const r=S.res[m.id]||{p:[],wo:''};const P=PLid(m.id);
   <div class="auth" data-auth></div>
   ${canEditM(m)?`<details><summary>Saisir le score</summary>
   ${canAdmin()?`<label class="hrow">🕒 Heure de la rencontre<input type="time" step="300" data-hour="${m.id}" value="${h(S.hours[m.id]||'')}"></label>`:''}
+  ${canJA(m)?`<label class="hrow">📋 Score officiel (points)<input data-gsc="${m.id}" value="${h(String(r.g||'').replace('.',','))}" placeholder="ex. 4,5-1,5 (vide = calcul par parties)" inputmode="decimal" autocomplete="off"></label>`:''}
   ${canHome(m)?`<label class="hrow">🏠 Équipe visitée<select data-home="${m.id}"><option value="">— non précisé —</option><option value="1"${homeOf(m.id)==='1'?' selected':''}>${h(m.t1)} (visitée) · ${h(m.t2)} (visiteuse)</option><option value="2"${homeOf(m.id)==='2'?' selected':''}>${h(m.t2)} (visitée) · ${h(m.t1)} (visiteuse)</option></select></label>`:''}
   ${orderIdx(m).map(i=>{const p=P[i];const nm=effN(m,i),pl=planned(m,i);const dbl=i>=XB?(extrasOf(m.id)[i-XB]||{}).t==='D':/double/i.test(p);
    const side=(t,v,sd)=>{if(!dbl)return pSelect(m,t,v||'',`n${i}${sd}`,'Joueur '+t);const a=String(v||'').split('/');
@@ -1057,7 +1061,7 @@ function card(m,tag,when){const r=S.res[m.id]||{p:[],wo:''};const P=PLid(m.id);
 
 function updateCard(id){const el=main.querySelector(`[data-card="${id}"]`);if(!el)return;const m=getMatch(id);if(!m)return;
   const e=ev(id),r=S.res[id]||{p:[]};
-  el.querySelector('[data-b]').innerHTML=e.any?`${fmtPts(e.p1)} : ${fmtPts(e.p2)}${e.wo?'<small>forfait</small>':e.draw?'<small>match nul</small>':e.done?'<small>terminée</small>':e.x&&!e.w?'<small>égalité : double décisif</small>':`<small>${e.dec}/${e.n} parties jouées</small>`}`:'– : –';
+  el.querySelector('[data-b]').innerHTML=e.any?`${fmtPts(e.p1)} : ${fmtPts(e.p2)}${e.off?`<small>score officiel FRMT${e.draw?' · nul':''}</small>`:e.wo?'<small>forfait</small>':e.draw?'<small>match nul</small>':e.done?'<small>terminée</small>':e.x&&!e.w?'<small>égalité : double décisif</small>':`<small>${e.dec}/${e.n} parties jouées</small>`}`:'– : –';
   el.classList.toggle('done',e.done);
   el.querySelector('[data-s="1"]').classList.toggle('win',e.done&&e.w===1);
   el.querySelector('[data-s="2"]').classList.toggle('win',e.done&&e.w===2);
@@ -1313,6 +1317,23 @@ function renderJoueur(){const k=S.sync.team,[c,t]=teamOfKey(k),me=+S.sync.pidx;i
    <h3>🔔 Mes prochaines désignations</h3>${D.length?D.map(x=>`<div class="pnote"><b>${h(x.lab)} contre ${h(x.sd?x.m.t1:x.m.t2)}</b>${x.m.date?h(DLONG[x.m.date])+' · '+h(whenTxt(x.m,x.m.lieu))+' · 📍 '+h(venueName(x.m.lieu)):'Phase finale'} ${x.m.date?gcal(x.m,c,x.m.lieu):''}</div>`).join(''):'<div class="empty" style="margin-top:0">Aucune désignation pour le moment. Vous serez prévenu(e) dès que votre coach vous aura désigné(e).</div>'}
    <div class="actions">${notifBtn}</div>
    <h3>Mon parcours (${hist.length} partie${hist.length>1?'s':''})</h3>${hist.length?`<div class="tbl"><div class="sc-wrap"><table class="phist"><thead><tr><th>Date</th><th>Partie</th><th>Adversaire</th><th>Score</th><th>Résultat</th></tr></thead><tbody>${hist.map(x=>`<tr><td>${x.m.date?h(DSHORT[x.m.date]):'Finale'}</td><td>${h(x.lab)}${x.mate?'<br><small>avec '+h(x.mate)+'</small>':''}</td><td>${h(x.oppN||'')} <small>(${h(x.opp)})</small></td><td>${h(fmtScore(x.sc))}</td><td>${x.res}</td></tr>`).join('')}</tbody></table></div></div>`:'<p class="legend">Aucune partie jouée pour le moment.</p>'}`;}
+const OFF_RES=[["u12d1", "COC", "RTCMA", "COC", "10-4"], ["u12d1", "ACSA", "RTCMA", "ACSA", "11-3"], ["u12d1", "ACSA", "COC", "ACSA", "8-2"], ["u12d1", "WIFAQ", "OCC", "WIFAQ", "11-3"], ["u12d1", "RTCMO (A)", "OCC", "RTCMO (A)", "12-2"], ["u12d1", "RTCMO (A)", "WIFAQ", "WIFAQ", "8-6"], ["u12d2", "USCM", "RUC", "USCM", "13-1"], ["u12d2", "USM/TCC", "RTCMO (B)", "USM/TCC", "10-4"], ["u12d2", "USCM", "TCMT", "USCM", "9-5"], ["u12d2", "USM/TCC", "RUC", "USM/TCC", "9-7"], ["u12d2", "USCM", "RTCMO (B)", "USCM", "12-2"], ["u12d2", "RUC", "TCMT", "TCMT", "11-3"], ["f14d1", "COC", "RTCMA", "COC", "4-0"], ["f14d1", "TCF", "USCM", "USCM", "3-1"], ["f14d1", "ACSA", "RTCMA", "ACSA", "4-0"], ["f14d1", "COC", "TCF", "TCF", "4-0"], ["f14d1", "ACSA", "USCM", "ACSA", "4-0"], ["f14d1", "TCF", "RTCMA", "TCF", "3-1"], ["f14d2", "RTCMO", "DHJTC", "RTCMO", "3-1"], ["f14d2", "WIFAQ", "OCC", "OCC", "3-1"], ["f14d2", "RTCMO", "OCC", "RTCMO", "4-0"], ["f14d2", "DHJTC", "TCMT", "TCMT", "4-0"], ["f14d2", "RTCMO", "WIFAQ", "RTCMO", "4-0"], ["f14d2", "TCMT", "OCC", "TCMT", "4-0"], ["g14d1", "ACSA", "RTCMO", "ACSA", "4.5-1.5"], ["g14d1", "RTCA", "TCF", "RTCA", "6-0"], ["g14d1", "ACSA", "TCF", "ACSA", "4.5-1.5"], ["g14d1", "RTCA", "RTCMO", "RTCA", "3.5-2.5"], ["g14d1", "ACSA", "RTCA", "RTCA", "3.5-2.5"], ["g14d1", "TCF", "RTCMO", "TCF", "5-1"], ["g14d1", "OCC", "COC", "OCC", "6-0"], ["g14d1", "USM/TCC", "RTCMA", "RTCMA", "4.5-1.5"], ["g14d1", "OCC", "RTCMA", "OCC", "3.5-2.5"], ["g14d1", "USM/TCC", "COC", "USM/TCC", "4.5-1.5"], ["g14d1", "OCC", "USM/TCC", "OCC", "3.5-2.5"], ["g14d1", "RTCMA", "COC", "RTCMA", "6-0"], ["g14d2", "ASAS", "RUC", "ASAS", "6-0"], ["g14d2", "USCM", "RUC", "USCM", "WO"], ["g14d2", "USCM", "ASAS", "USCM", "3.5-2.5"], ["g14d2", "DHJTC", "WIFAQ", "DHJTC", "WO"], ["g14d2", "TCMT", "WIFAQ", "TCMT", "WO"], ["g14d2", "TCMT", "DHJTC", "TCMT", "6-0"], ["f18d1", "OCC", "USCM", "OCC", "4-0"], ["f18d1", "RTCMO", "COC", "RTCMO", "4-0"], ["f18d1", "ACSA", "USCM", "ACSA", "4-0"], ["f18d1", "OCC", "RTCMO", "OCC", "3-1"], ["f18d1", "ACSA", "COC", "ACSA", "4-0"], ["f18d1", "RTCMO", "USCM", "RTCMO", "4-0"], ["f18d2", "RUC", "RTCMA", "RTCMA", "3-1"], ["f18d2", "USM/TCC", "RTCA", "RTCA", "WO"], ["f18d2", "TCMT", "RTCA", "TCMT", "4-0"], ["f18d2", "USM/TCC", "RTCMA", "RTCMA", "WO"], ["f18d2", "TCMT", "RUC", "TCMT", "4-0"], ["f18d2", "RTCA", "RTCMA", "RTCMA", "3-2"], ["g18d1", "ACSA (A)", "COC", "ACSA (A)", "6-0"], ["g18d1", "OCC", "RTCA", "OCC", "6-0"], ["g18d1", "ACSA (A)", "RTCA", "ACSA (A)", "6-0"], ["g18d1", "OCC", "COC", "OCC", "6-0"], ["g18d1", "ACSA (A)", "OCC", "ACSA (A)", "6-0"], ["g18d1", "RTCA", "COC", "COC", "3.5-2.5"], ["g18d1", "USCM (A)", "RUC", "USCM (A)", "6-0"], ["g18d1", "RTCMO (A)", "USM/TCC", "RTCMO (A)", "4-2"], ["g18d1", "USCM (A)", "USM/TCC", "USCM (A)", "3.5-2.5"], ["g18d1", "RTCMO (A)", "RUC", "RTCMO (A)", "6-0"], ["g18d1", "USCM (A)", "RTCMO (A)", "USCM (A)", "6-0"], ["g18d1", "USM/TCC", "RUC", "USM/TCC", "4.5-1.5"], ["g18d2", "USCM (B)", "ASAS", "USCM (B)", "3.5-2.5"], ["g18d2", "RTCMO (B)", "TCM", "RTCMO (B)", "4.5-1.5"], ["g18d2", "USCM (B)", "TCM", "USCM (B)", "6-0"], ["g18d2", "RTCMO (B)", "ASAS", "RTCMO (B)", "3.5-2.5"], ["g18d2", "USCM (B)", "RTCMO (B)", "USCM (B)", "3.5-2.5"], ["g18d2", "TCM", "ASAS", "ASAS", "6-0"], ["g18d2", "TCMT", "RTCMA", "RTCMA", "6-0"], ["g18d2", "ACSA (B)", "DHJTC", "ACSA (B)", "6-0"], ["g18d2", "TCMT", "DHJTC", "DHJTC", "3.5-2.5"], ["g18d2", "ACSA (B)", "RTCMA", "ACSA (B)", "3.5-2.5"], ["g18d2", "TCMT", "ACSA (B)", "ACSA (B)", "6-0"], ["g18d2", "DHJTC", "RTCMA", "DHJTC", "3.5-2.5"]];
+function importOfficial(){if(!canAdmin())return;
+  /* réglages confirmés par les totaux FRMT : 11-12 ans 3 doubles ; 13-14 et 15-18 garçons 3 simples + 2 doubles à 1,5 pt */
+  S.cfg=Object.assign({},S.cfg,{u12d:3,comp:Object.assign({},(S.cfg||{}).comp,{g14:'3-2',g18:'3-2'}),pts:Object.assign({},(S.cfg||{}).pts,{g14:{s:1,d:1.5},g18:{s:1,d:1.5}})});
+  if(syncReady()){const t0=now();S.fin['cfg:u12d']=String(3);S.finTs['cfg:u12d']=t0;S.fin['cfg:comp']=JSON.stringify(S.cfg.comp);S.finTs['cfg:comp']=t0;S.fin['cfg:pts']=JSON.stringify(S.cfg.pts);S.finTs['cfg:pts']=t0;}
+  let ok=0;const miss=[],diff=[];
+  OFF_RES.forEach(([cid,a,b,wn,sc])=>{const c=CATMAP[cid];const m=c&&c.matches.find(x=>(x.t1===a&&x.t2===b)||(x.t1===b&&x.t2===a));if(!m){miss.push(`${cid} ${a}–${b}`);return;}
+    const tot=parts(c).reduce((q,x)=>q+x.pts,0);let [hi,lo]=sc==='WO'?[tot,0]:sc.split('-').map(Number);const w1=wn===m.t1;const g=(w1?[hi,lo]:[lo,hi]).map(fmtPts).join('-');
+    const r=S.res[m.id]=S.res[m.id]||{p:[],wo:'',n:[]};const before=evalR(Object.assign({},r,{g:''}),c,m.id);
+    if(before.done&&!before.off&&(before.p1!==(w1?hi:lo)||before.p2!==(w1?lo:hi)))diff.push(`${catLabel(c)} · ${m.t1}–${m.t2} : appli ${fmtPts(before.p1)}-${fmtPts(before.p2)}, FRMT ${g}`);
+    if(r.g!==g){r.g=g;markDirty(m.id,'g');S.ts[m.id]=now();}ok++;});
+  save();render();
+  ovOpen('offimp');OV.innerHTML=`<div class="ov-h"><div><b style="color:#fff;font-size:15px">📋 Résultats officiels FRMT importés</b><br>${ok} rencontres des 25, 26 et 27 septembre.</div><button class="ov-x" data-ov="close">Fermer</button></div>
+   <p style="color:#dfe8f2">Réglages appliqués : 11-12 ans à 3 doubles ; 13-14 et 15-18 ans garçons à 3 simples + 2 doubles (1,5 pt par double). Filles : 2 simples + 1 double (2 pts), inchangé.</p>
+   ${diff.length?`<p style="color:#ffd0c9"><b>${diff.length} écart(s) entre vos parties saisies et le score FRMT</b> (le score officiel est retenu) :</p><ul style="color:#ffd0c9">${diff.map(x=>`<li>${h(x)}</li>`).join('')}</ul>`:'<p style="color:#bfe8c9">Aucun écart avec les parties déjà saisies.</p>'}
+   ${miss.length?`<p style="color:#ffd0c9">Rencontres introuvables : ${h(miss.join(' · '))}</p>`:''}
+   <p class="legend" style="color:#9fb0c2">Chaque score officiel reste modifiable dans la rencontre (📋 Score officiel). Le détail des parties peut toujours être ajouté.</p>`;}
 function marqLabel(key){const [id,pi]=String(key||'').split('#'),m=getMatch(id);if(!m)return String(key||'');const c=catOfId(id);return `${m.t1} – ${m.t2} (${c?c.nom+(c.sexe?' '+c.sexe:'')+' '+c.div:''})${pi!==undefined?' · '+(PLid(id)[+pi]||'partie'):''}`;}
 function renderMarq(){const [id,pi]=String(S.sync.match||'').split('#'),m=getMatch(id);if(!m){main.innerHTML='<div class="empty">Rencontre inconnue : demandez un nouveau lien à l\'organisateur.</div>';return;}
   const c=catOfId(id);
@@ -1687,15 +1708,15 @@ function renderPresence(){const box=document.getElementById('presbox');if(!box)r
 function valLock(id){if(!syncReady())return false;const m=getMatch(id);return isValid(id)&&!canJA(m);}
 const roleName=r=>ROLES[r]||'Profil à confirmer';
 const unsent=()=>Object.keys(S.dirty||{}).filter(id=>Object.keys(S.dirty[id]||{}).length);
-function unitV(r,k){r=r||{};if(k==='h')return [String(r.h||'').trim()];if(k==='x')return [String(r.x||'').trim()];if(k==='w')return [String(r.wo||'').trim()];if(k==='v')return [String(r.v||'').trim()];const n=(r.n||[])[k]||[];return [String((r.p||[])[k]||'').trim(),String(n[0]||'').trim(),String(n[1]||'').trim()];}
-function setUnit(r,k,v){if(k==='h'){r.h=v[0]||'';return;}if(k==='x'){r.x=v[0]||'';return;}if(k==='w'){r.wo=v[0]||'';return;}if(k==='v'){r.v=v[0]||'';return;}r.p=r.p||[];r.n=Array.from(r.n||[],x=>x||['','']);while(r.n.length<=+k)r.n.push(['','']);r.p[+k]=v[0]||'';r.n[+k]=[v[1]||'',v[2]||''];}
+function unitV(r,k){r=r||{};if(k==='g')return [String(r.g||'').trim()];if(k==='h')return [String(r.h||'').trim()];if(k==='x')return [String(r.x||'').trim()];if(k==='w')return [String(r.wo||'').trim()];if(k==='v')return [String(r.v||'').trim()];const n=(r.n||[])[k]||[];return [String((r.p||[])[k]||'').trim(),String(n[0]||'').trim(),String(n[1]||'').trim()];}
+function setUnit(r,k,v){if(k==='g'){r.g=v[0]||'';return;}if(k==='h'){r.h=v[0]||'';return;}if(k==='x'){r.x=v[0]||'';return;}if(k==='w'){r.wo=v[0]||'';return;}if(k==='v'){r.v=v[0]||'';return;}r.p=r.p||[];r.n=Array.from(r.n||[],x=>x||['','']);while(r.n.length<=+k)r.n.push(['','']);r.p[+k]=v[0]||'';r.n[+k]=[v[1]||'',v[2]||''];}
 function markDirty(id,k){(S.dirty[id]=S.dirty[id]||{})[k]=1;}
 function markAll(id){const n=Math.max(parts(catOfId(id)).length+1,((S.res[id]||{}).p||[]).length);for(let i=0;i<n;i++)markDirty(id,String(i));markDirty(id,'w');}
 function applyRec(rec,sent){if(Array.isArray(rec)){const d=rec,u={},ts=(+d[3]||0)*1000;(d[1]||[]).forEach((p,i)=>{const n=(d[4]||[])[i]||[];u[i]={v:[p||'',n[0]||'',n[1]||''],ts,by:''};});if(d[2])u.w={v:[d[2]],ts,by:''};rec={id:d[0],u};}
   if(!rec||!rec.id||!getMatch(rec.id))return false;const id=rec.id,r=S.res[id]=S.res[id]||{p:[],wo:'',n:[]};r.pb=r.pb||{};let ch=false,mx=0;
   Object.entries(rec.u||{}).forEach(([k,u])=>{if(!u)return;if(S.resetSec&&(u.ts||0)<S.resetSec*1000)return;mx=Math.max(mx,u.ts||0);
     const cur=unitV(r,k);if(S.dirty[id]&&S.dirty[id][k]){const sv=sent&&sent[id]&&sent[id][k];if(!sv||JSON.stringify(sv)!==JSON.stringify(cur))return;delete S.dirty[id][k];}
-    r.pb[k]=u.ts;(r.by=r.by||{})[k]=u.by||'';(r.bt=r.bt||{})[k]=u.ts||0;const nv=(u.v||[]).map(x=>String(x||''));if(JSON.stringify(cur)!==JSON.stringify(k==='w'||k==='v'||k==='x'||k==='h'?[nv[0]||'']:[nv[0]||'',nv[1]||'',nv[2]||''])){setUnit(r,k,nv);ch=true;}});
+    r.pb[k]=u.ts;(r.by=r.by||{})[k]=u.by||'';(r.bt=r.bt||{})[k]=u.ts||0;const nv=(u.v||[]).map(x=>String(x||''));if(JSON.stringify(cur)!==JSON.stringify(k==='w'||k==='v'||k==='x'||k==='h'||k==='g'?[nv[0]||'']:[nv[0]||'',nv[1]||'',nv[2]||''])){setUnit(r,k,nv);ch=true;}});
   if(mx)S.ts[id]=Math.max(S.ts[id]||0,Math.floor(mx/1000));if(S.dirty[id]&&!Object.keys(S.dirty[id]).length)delete S.dirty[id];return ch;}
 function doneLock(id,k){if(!syncReady()||canJA(getMatch(id)))return false;const r=S.res[id];if(!r||!r.pb||!r.pb[k]||(S.dirty[id]&&S.dirty[id][k]))return false;
   if(k==='w')return !!r.wo;const nx=+k===parts(catOfId(id)).length;const st=partie((r.p||[])[k],nx?1:2,nx);return !!(st&&st.w);}
@@ -1848,7 +1869,7 @@ function syncUI(){const b=document.getElementById('syncst');if(!b)return;if(!syn
   b.title=S.sync.err||'Synchroniser maintenant';}
 document.getElementById('syncst').addEventListener('click',()=>syncNow(true));
 document.getElementById('who').addEventListener('click',()=>{S.tab='data';save();render();window.scrollTo(0,0);});
-const APP_VERSION='2026-09-28 15:00';
+const APP_VERSION='2026-09-28 20:00';
 const DEFAULT_APP_URL='https://mrani-hub.github.io/tennis-jeunes-7q4/';
 const appUrl=()=>{const u=String(S.appUrl||'').trim();if(/^https:\/\//.test(u))return u.replace(/#.*$/,'');return /^https:$/.test(location.protocol)?location.origin+location.pathname:DEFAULT_APP_URL;};
 const inviteLink=code=>appUrl()?appUrl()+'#i='+code:'';
@@ -2016,6 +2037,7 @@ function rulesPanel(){const cfg=S.cfg||{};const ed=canAdmin();
    <p class="legend">Composition des rencontres par catégorie, envoyée à tous les appareils. Les résultats déjà saisis (simples n°1, n°2 et double) sont conservés.</p>`:''}
    ${ed?`<h4>Points par partie gagnée</h4><div class="sc-wrap"><table class="palm" style="max-width:520px"><thead><tr><th>Catégorie</th><th>Simple</th><th>Double</th></tr></thead><tbody>${Object.keys(PGRP).map(g=>{const v=ptsOf(g==='u12'?CATMAP.u12d1:CATMAP[g+'d1']);return `<tr><td>${PGRP[g]}</td><td><input type="text" inputmode="decimal" style="width:70px" data-ptsg="${g}|s" value="${fmtPts(v.s)}"></td><td><input type="text" inputmode="decimal" style="width:70px" data-ptsg="${g}|d" value="${fmtPts(v.d)}"></td></tr>`;}).join('')}</tbody></table></div>
    <p class="legend">Par défaut : 1 point par simple et 2 par double. Exemple : 1,5 pour le double si le règlement de la catégorie l'impose. Le changement recalcule toutes les rencontres et les classements, et part vers tous les appareils.</p>`:''}
+   ${ed?`<div class="actions" style="margin:8px 0"><button class="btn pri" data-offimp>📋 Importer les résultats officiels FRMT (25-27 sept.)</button></div>`:''}
    <h4>Résultats et classement (toutes catégories)</h4>
    ${tbl([['Rencontre',Object.keys(PGRP).map(g=>{const v=ptsOf(g==='u12'?CATMAP.u12d1:CATMAP[g+'d1']);return `${PGRP[g]} : ${fmtPts(v.s)} pt par simple, ${fmtPts(v.d)} pt${v.d>1?'s':''} par double`;}).join(' · ')],['Égalité en poule','match nul'],['Égalité en élimination directe','double décisif en super tie-break à 10 points, 15 min après les doubles'],['Classement','victoire 3 pts · nul 2 pts · défaite 1 pt · forfait ou disqualification −1 pt'],['2 équipes à égalité','confrontation directe'],['3 équipes ou plus','différence de matchs (points) gagnés/perdus, puis % de sets, puis % de jeux, puis confrontation directe des 2 dernières'],['Super tie-break','compte pour 1 set et 1-0 en jeux'],['Forfait','rencontre perdue, tous les matchs 6-0 6-0 ; à partir du 2e forfait, forfait général'],['Abandon sur blessure','score complété (ex. 6-1 2-0 enregistré 6-1 6-0)']])}
    <details style="margin-top:8px"><summary>Autres dispositions</summary><ul>
@@ -2120,6 +2142,8 @@ main.addEventListener('change',e=>{const t=e.target;
   if(t.id==='shdate'){S.sh.date=t.value;S.sh.lieu='';save();renderShare();return;}
   if(t.id==='shlieu'){S.sh.lieu=t.value;save();renderShare();return;}
   if(t.id==='shmine'){S.sh.mine=t.checked;save();renderShare();return;}
+  if(t.dataset.gsc){const id=t.dataset.gsc,m=getMatch(id);if(!m||!canJA(m))return;const v=t.value.trim();if(v&&!offScore(v)){toast('Format attendu : 4,5-1,5');return;}
+    const r=S.res[id]=S.res[id]||{p:[],wo:'',n:[]};r.g=v?offScore(v).map(fmtPts).join('-'):'';markDirty(id,'g');S.ts[id]=now();save();render();toast(v?'Score officiel enregistré':'Score officiel retiré : calcul par parties');return;}
   if(t.dataset.home){const id=t.dataset.home,m=getMatch(id);if(!m||!canHome(m))return;const r=S.res[id]=S.res[id]||{p:[],wo:'',n:[]};r.h=t.value;markDirty(id,'h');S.ts[id]=now();save();render();toast(t.value?'Équipe visitée : '+(t.value==='1'?m.t1:m.t2):'Équipe visitée effacée');return;}
   if(t.dataset.ptsg){if(!canAdmin())return;const [g,w]=t.dataset.ptsg.split('|');let v=String(t.value).replace(',','.').trim();v=v===''?(w==='d'?2:1):Math.round(Math.max(0,Math.min(10,+v||0))*2)/2;
     const cur=Object.assign({},(S.cfg||{}).pts);cur[g]=Object.assign({},cur[g],{[w]:v});S.cfg=Object.assign({},S.cfg,{pts:cur});
@@ -2202,6 +2226,7 @@ main.addEventListener('click',e=>{const t=e.target;
     for(let q=+j;q<L.length+1;q++){r.p=r.p||[];r.n=r.n||[];r.p[XB+q]=r.p[XB+q+1]||'';r.n[XB+q]=r.n[XB+q+1]||['',''];if(q<L.length+1)markDirty(id,String(XB+q));}
     r.x=L.length?JSON.stringify(L):'';markDirty(id,'x');S.ts[id]=now();save();render();toast('Partie retirée');return;}
   const mq0=t.closest('[data-marq]');if(mq0){showMarqInv(mq0.dataset.marq);return;}
+  if(t.closest('[data-offimp]')){if(confirm('Importer les 78 résultats officiels FRMT des 25, 26 et 27 septembre ?'))importOfficial();return;}
   const rs=t.closest('[data-rst]');if(rs){const all=rs.dataset.rst==='all',o={hours:!!(document.getElementById('rsth')||{}).checked,players:!!(document.getElementById('rstp')||{}).checked};
     if(!confirm(all?'Effacer les scores et le Live sur TOUS les appareils synchronisés ? Chaque appareil gardera une copie de sécurité.':'Effacer les scores et le Live sur cet appareil ?'))return;
     if(!canAdmin()){toast("Réservé à l'organisateur");return;}
