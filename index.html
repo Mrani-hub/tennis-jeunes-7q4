@@ -536,6 +536,11 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .xadd{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px;padding-top:8px;border-top:1px dashed var(--line);font-size:13px;color:var(--muted)}
 .xadd select,.xadd input{padding:6px;border:1px solid var(--line);border-radius:7px;background:var(--paper)}
 .xadd input{flex:1;min-width:140px}
+.clubn{display:inline-block;font:700 11.5px var(--fd);color:var(--court);background:color-mix(in srgb,var(--court) 12%,transparent);border-radius:5px;padding:1px 6px;margin-left:3px;letter-spacing:.3px}
+/* Mises à jour */
+.verchip{margin-left:6px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.08);color:#dfe8f2;border-radius:999px;padding:5px 11px;font:600 12.5px var(--fb);cursor:pointer}
+.verchip.new{background:var(--ball);color:#10233a;border-color:var(--ball);animation:pulse 2s infinite}
+.bk.upd{background:#e6f4ea;border-color:var(--win);color:#0f4d2a}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -545,7 +550,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
     <h1>Championnat du Maroc par Équipes des Jeunes</h1>
     <div class="sub">FRMT, saison 2025/2026 : poules du 25 au 27 septembre, rencontres des 3 et 4 octobre 2026</div>
     <div class="prog"><div class="bar"><i id="gbar"></i></div><span id="gtxt"></span><span class="saved" id="saved"></span><button class="syncst" id="syncst" hidden></button></div>
-    <div class="whobar"><button class="who" id="who" hidden></button></div>
+    <div class="whobar"><button class="who" id="who" hidden></button><button class="verchip" id="verchip" type="button">🔄 Version …</button></div>
   </div>
 </header>
 <nav><div class="nw">
@@ -696,13 +701,32 @@ function iosBanner(){if(!isIOS())return '';
     return `<div class="bk err"><span><b>Sur iPhone, ce fichier ne peut pas fonctionner correctement.</b> Ouvrez l'appli par son lien internet${a?'':' (demandez-le à l\'organisateur)'}.</span>${a?`<a class="btn sm" href="${h(a)}${location.hash||''}">Ouvrir la version en ligne</a>`:''}</div>`;}
   if(/^https:$/.test(location.protocol)&&!standalone()&&!S.iosTipOff)return `<div class="iosb"><span>📱 <b>Ajoutez l'appli à votre écran d'accueil</b> : touchez le bouton Partager <span style="font-size:15px">⎙</span> de Safari, puis « Sur l'écran d'accueil ». Vous l'ouvrirez ensuite comme une application.</span><button class="btn sm" data-bk="iostip">OK, compris</button></div>`;
   return '';}
+let UPD={remote:'',checked:0,busy:false};
+async function checkUpdate(manual){const u=appUrl();if(!u){if(manual)toast("Adresse de l'appli en ligne inconnue");return;}if(UPD.busy)return;UPD.busy=true;verUI(manual?'…':'');
+  try{const r=await fetch(u.replace(/#.*$/,'')+'?chk='+Date.now(),{cache:'no-store'});const t=await r.text();const m=t.match(/const APP_VERSION='(\d{4}-\d\d-\d\d[^']*)'/);
+    UPD.remote=m?m[1]:'';UPD.checked=Date.now();
+    if(manual)toast(UPD.remote&&UPD.remote>APP_VERSION?'🆕 Nouvelle version disponible : '+UPD.remote:'✓ Vous avez la dernière version ('+APP_VERSION+')');}
+  catch(e){if(manual)toast('Vérification impossible : pas de connexion internet ?');}
+  UPD.busy=false;verUI();updBar();}
+const hasUpdate=()=>!!(UPD.remote&&UPD.remote>APP_VERSION);
+function verUI(st){const b=document.getElementById('verchip');if(!b)return;const nw=hasUpdate();b.classList.toggle('new',nw);
+  b.textContent=st==='…'?'🔄 Vérification…':nw?'🆕 Mise à jour disponible':'🔄 Version '+APP_VERSION.slice(5,10).split('-').reverse().join('/')+(UPD.checked?' ✓':'');
+  b.title=nw?'Nouvelle version '+UPD.remote+' : touchez pour l\'installer':'Version '+APP_VERSION+' · touchez pour vérifier les mises à jour';}
+function selfLink(){if(!syncReady())return appUrl();const inv=syncInvite(S.sync.role==='admin'?'admin':S.sync.role,S.sync.role==='ja'?S.sync.venue:S.sync.team,S.sync.pidx);return inv&&inv.link?inv.link:appUrl();}
+async function installUpdate(){const online=/^https:$/.test(location.protocol);
+  if(online){toast('Installation de la nouvelle version…');location.replace(location.pathname+'?v='+encodeURIComponent(UPD.remote||Date.now())+location.hash);return;}
+  /* fichier local : ouvrir la version en ligne, déjà configurée pour cet utilisateur */
+  window.open(selfLink(),'_blank');toast('La version à jour s\'ouvre en ligne, avec votre profil. Ajoutez-la à l\'écran d\'accueil.');}
 function updBar(){const b=document.getElementById('bkbar');if(!b)return;const n=pending();let x=iosBanner();const iosFile=isIOS()&&(location.protocol==='file:'||/^content:/.test(location.href));
   if(iosFile){}else if(!BK.ls&&!BK.idb)x=`<div class="bk err"><span><b>Les résultats ne peuvent pas être enregistrés dans ce navigateur</b> (navigation privée ou stockage bloqué). Ouvrez le fichier dans Chrome ou Safari en mode normal, et exportez maintenant ce qui a été saisi.</span><button class="btn sm" data-bk="exp">Exporter maintenant</button></div>`;
   else if(BK.file&&!BK.filePerm)x=`<div class="bk"><span>La sauvegarde automatique dans le fichier « ${h(BK.file.name)} » est en pause.</span><button class="btn sm" data-bk="perm">Réactiver</button></div>`;
   else if(!BK.file&&n>=10&&n>=BK.snooze)x=`<div class="bk"><span><b>${n} résultats</b> saisis depuis la dernière sauvegarde sur fichier. Ils sont en sécurité dans l'appli, mais un fichier protège contre un nettoyage du navigateur ou la perte du téléphone.</span><button class="btn sm" data-bk="exp">Exporter</button><button class="btn sm" data-bk="later">Plus tard</button></div>`;
+  if(hasUpdate()&&!(S.updSkip===UPD.remote))x+=`<div class="bk upd"><span>🆕 <b>Nouvelle version de l'appli disponible</b> (${h(UPD.remote)}). Vos résultats et votre profil sont conservés.</span><button class="btn sm pri" data-bk="upd">Installer la mise à jour</button><button class="btn sm" data-bk="updlater">Plus tard</button></div>`;
   b.innerHTML=x;}
 document.getElementById('bkbar').addEventListener('click',async e=>{const t=e.target.closest('[data-bk]');if(!t)return;const a=t.dataset.bk;
   if(a==='iostip'){S.iosTipOff=1;save();updBar();return;}
+  if(a==='upd'){installUpdate();return;}
+  if(a==='updlater'){S.updSkip=UPD.remote;save();updBar();return;}
   if(a==='exp')doExport();
   if(a==='later'){BK.snooze=pending()+10;updBar();}
   if(a==='perm'){try{BK.filePerm=(await BK.file.requestPermission({mode:'readwrite'}))==='granted';}catch(x){}if(BK.filePerm)await writeFile();updBar();if(S.tab==='data')renderSaveStatus();}});
@@ -1282,7 +1306,7 @@ function renderMine(){if(syncReady()&&S.sync.role==='coach')return renderCoach()
   let html=`<div class="hero"><div class="nm"><small>Mon club</small><b>${h(S.myClub)}</b></div>
     <div class="st"><span>${k.teams.length}<small>équipes</small></span><span>${k.V}<small>victoires</small></span><span>${k.D}<small>défaites</small></span><span>${k.pp}-${k.pc}<small>parties</small></span></div>
     <div class="actions" style="margin:0"><button class="btn sm wa" data-share="all||1">Partager ses résultats</button><button class="btn sm" data-calclub>📅 Calendrier</button><button class="btn sm" data-pdf="mine">PDF du club</button><button class="btn sm" data-myclub="">Changer de club</button></div></div>`;
-  {const lv=liveList(true);html+=manualHTML(true);html+=`<h3>● Live</h3>`+(lv.on.length||lv.fin.length?lv.html:`<p class="legend" style="margin-top:0">Aucune partie de ${h(S.myClub)} en cours pour le moment.${syncReady()?'':' Configurez la synchronisation pour suivre les autres terrains.'}</p>`);}
+  {const lv=liveList(true);html+=manualHTML(true);html+=upNextHTML(true);html+=`<h3>● Live</h3>`+(lv.on.length||lv.fin.length?lv.html:`<p class="legend" style="margin-top:0">Aucune partie de ${h(S.myClub)} en cours pour le moment.${syncReady()?'':' Configurez la synchronisation pour suivre les autres terrains.'}</p>`);}
   html+= next?`<h3>Prochaine rencontre à saisir</h3><div class="venue"><h4>${h(whenOf(next))}</h4>${prowHTML(next)}</div>`
              :`<h3>Prochaine rencontre à saisir</h3><div class="empty" style="margin-top:0">Toutes les rencontres connues de ${h(S.myClub)} sont saisies.</div>`;
   html+=`<h3>Équipes engagées</h3><div class="venue tlist">${k.teams.map(({c,t,st})=>`<button class="team" data-opencat="${c.id}"><span><b>${h(catLabel(c))}</b>${t!==S.myClub?` <small>(${h(t.replace(S.myClub,'').trim())})</small>`:''}</span><span class="pill ${st[1]}">${h(st[0])}</span></button>`).join('')}</div>`;
@@ -1756,12 +1780,22 @@ function manualLive(mine){const out=[];CATS.forEach(c=>{const ms=[...c.matches];
 function manualHTML(mine){const L=manualLive(mine);if(!L.length)return '';
   return `<h3>● En cours, score publié au fil des sets (${L.length})</h3><div class="venue">${L.map(({m,c,i,lab,sc})=>{const nn=effN(m,i),a=pnames(c,m.t1,nn[0])||m.t1,b=pnames(c,m.t2,nn[1])||m.t2;
     return `<div class="prow${myM(m)?' mine':''}" role="button" tabindex="0" data-go="${m.id}" data-gocat="${c.id}"><span class="c">${h(catLabel(c))} · ${h(lab)}<br>${h(m.t1)} – ${h(m.t2)}</span><span class="a">${h(a)}</span><span class="s" style="background:#e0493a;color:#fff">${h(fmtScore(sc).replace(' en cours',''))}</span><span class="b">${h(b)}</span></div>`;}).join('')}</div>`;}
+function upNext(mine){const out=[];
+  CATS.forEach(c=>{const ms=[...c.matches];if(c.type==='2P'){const F=finals(c);[F.sf1,F.sf2,F.f].forEach(m=>{if(m.t1&&m.t2)ms.push(m);});}
+    ms.forEach(m=>{if(mine&&!myM(m))return;const e=ev(m.id);if(e.done)return;const r=S.res[m.id]||{},x0=parts(c).length;
+      orderIdx(m).forEach((i,ord)=>{if(i===x0&&!e.x)return;const n=(r.n||[])[i]||['',''];if(!String(n[0]||'').trim()||!String(n[1]||'').trim())return;
+        if(String((r.p||[])[i]||'').trim()||isActive(S.live[m.id+'#'+i]))return;out.push({m,c,i,ord,lab:PLid(m.id)[i],n});});});});
+  return out.sort((a,b)=>(DATES.indexOf(a.m.date)+1||99)-(DATES.indexOf(b.m.date)+1||99)||timeKey(a.m,a.m.lieu).localeCompare(timeKey(b.m,b.m.lieu))||a.ord-b.ord);}
+function upNextHTML(mine){const L=upNext(mine);if(!L.length)return '';
+  return `<h3>🔜 Affiches à suivre (${L.length})</h3><div class="venue">${L.slice(0,40).map(({m,c,i,lab,n})=>`<div class="prow${myM(m)?' mine':''}" role="button" tabindex="0" data-go="${m.id}" data-gocat="${c.id}">
+    <span class="c">${h(catLabel(c))} · ${h(lab)}<br>${m.date?h(DSHORT[m.date])+' · '+h(whenTxt(m,m.lieu))+' · 📍 '+h(venueName(m.lieu)):h(m.tag||'Phase finale')}</span>
+    <span class="a">${h(pnames(c,m.t1,n[0]))} <small class="clubn">${h(m.t1)}</small></span><span class="s e">vs</span><span class="b">${h(pnames(c,m.t2,n[1]))} <small class="clubn">${h(m.t2)}</small></span></div>`).join('')}</div>${L.length>40?`<p class="legend">… et ${L.length-40} autres affiches.</p>`:''}`;}
 function liveStamp(){const el=document.getElementById('livestamp');if(el)el.textContent=syncReady()?(S.sync.liveAt?'Actualisé à '+tzShift(S.sync.liveAt).toLocaleTimeString('fr-FR',{timeZone:'UTC'}):'Connexion au Live…'):'';}
 function renderLiveTab(){const mine=S.liveMine&&(S.myClub||S.sync.role==='ja');const {html}=liveList(mine);
   main.innerHTML=`<h2>Live</h2><div class="filters">${S.myClub||S.sync.role==='ja'?`<label style="font-size:13.5px"><input type="checkbox" id="livemine"${S.liveMine?' checked':''}> Seulement ${S.sync.role==='ja'?'mon lieu ('+h(S.sync.venue)+')':h(S.myClub)}</label>`:''}
    <span class="legend" id="livestamp" style="flex:1"></span>${syncReady()?'<button class="btn sm" data-sy="live">Actualiser</button>':''}</div>
    ${syncReady()?'':'<div class="bk" style="margin:10px 0"><span>La synchronisation n\'est pas configurée : seules les parties suivies sur cet appareil apparaissent. Configurez-la dans Paramétrage pour voir tous les terrains.</span><button class="btn sm" data-gotab="data">Paramétrage</button></div>'}
-   <div style="margin-top:12px">${html}</div>${manualHTML(mine)}
+   <div style="margin-top:12px">${html}</div>${manualHTML(mine)}${upNextHTML(mine)}
    <p class="legend">Le Live vient des appareils qui comptent les points avec le bouton « ▶ Live » sur le court. Actualisation automatique toutes les 10 secondes. Touchez une partie pour ouvrir sa rencontre.</p>`;
   liveStamp();}
 
@@ -1775,7 +1809,9 @@ function syncUI(){const b=document.getElementById('syncst');if(!b)return;if(!syn
   b.title=S.sync.err||'Synchroniser maintenant';}
 document.getElementById('syncst').addEventListener('click',()=>syncNow(true));
 document.getElementById('who').addEventListener('click',()=>{S.tab='data';save();render();window.scrollTo(0,0);});
-const appUrl=()=>{const u=String(S.appUrl||'').trim();if(/^https:\/\//.test(u))return u.replace(/#.*$/,'');return /^https:$/.test(location.protocol)?location.origin+location.pathname:'';};
+const APP_VERSION='2026-09-27 10:30';
+const DEFAULT_APP_URL='https://mrani-hub.github.io/tennis-jeunes-7q4/';
+const appUrl=()=>{const u=String(S.appUrl||'').trim();if(/^https:\/\//.test(u))return u.replace(/#.*$/,'');return /^https:$/.test(location.protocol)?location.origin+location.pathname:DEFAULT_APP_URL;};
 const inviteLink=code=>appUrl()?appUrl()+'#i='+code:'';
 function syncInvite(role,venue,pidx){if(!syncReady())return null;role=role||'saisie';
   const k=role==='coach'?(((S.sync.codes||{}).coach||{})[venue]||''):role==='joueur'?(((S.pcodes||{})[venue]||{})[pidx]||''):role==='admin'?S.sync.key:role==='ja'?(((S.sync.codes||{}).ja||{})[venue]||''):S.sync.codes?(role==='lecture'?S.sync.codes.lecture:S.sync.codes.saisie):S.sync.key;if(!k)return null;
@@ -2135,7 +2171,8 @@ if(!S.off1&&S.onboarded&&canAdmin()){applyOfficialAll();save();}
 render();
 showSaved(false);updBar();initBackup();
 {const pre=applyHashInvite()||applyPreset();if(!S.onboarded){if(pre)showWelcome('profile');else if(syncReady()||Object.keys(S.res).length){S.onboarded=true;save();}else showWelcome('start');}}
-syncUI();if(syncReady()&&S.sync.auto)setTimeout(()=>syncNow(false),2500);setTimeout(checkNotify,1500);setTimeout(()=>{if(syncReady())cleanStaleLive();},3000);
+syncUI();if(syncReady()&&S.sync.auto)setTimeout(()=>syncNow(false),2500);setTimeout(checkNotify,1500);verUI();setTimeout(()=>checkUpdate(false),4000);setInterval(()=>{if(document.visibilityState==='visible')checkUpdate(false);},30*60e3);
+document.getElementById('verchip').addEventListener('click',()=>{if(hasUpdate())installUpdate();else checkUpdate(true);});setTimeout(()=>{if(syncReady())cleanStaleLive();},3000);
 </script>
 </body>
 </html>
