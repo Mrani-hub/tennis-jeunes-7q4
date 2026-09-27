@@ -544,6 +544,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 body.marqm nav,body.marqm .xadd,body.marqm .mc-f select[data-k="wo"],body.marqm [data-clear]{display:none!important}
 .marqh{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:12px 0}
 .marqh b{font:700 18px var(--fd)}
+.hv{display:block;font:600 10.5px var(--fb);letter-spacing:.3px;margin-top:2px;color:var(--muted)}
+.hv.home{color:var(--win)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -613,7 +615,7 @@ function partOf(c,i,id){const P=parts(c);if(i<P.length)return P[i];if(i>=XB){con
 const PL=c=>parts(c).map(x=>x.l);
 const PLid=id=>{const c=catOfId(id),a=PL(c).slice();if(isKO(id))a[a.length]=DECIDER.l;extrasOf(id).forEach((x,j)=>a[XB+j]=x.l);return a;};
 function orderIdx(m){const P=parts(m.cat),idx=P.map((_,i)=>i);
-  if(!isU12(m.cat)){const rk={S4:0,S3:1,S2:2,S1:3,D1:4,D2:5};idx.sort((a,b)=>rk[P[a].slot]-rk[P[b].slot]);}
+  if(!isU12(m.cat)){const rk={S1:0,S2:1,S3:2,S4:3,D1:4,D2:5};idx.sort((a,b)=>rk[P[a].slot]-rk[P[b].slot]);}
   if(isU12(m.cat)&&isKO(m.id)){const ord=['11F1','11F2','11G1','11G2','12F1','12F2','12G1','12G2'];idx.sort((a,b)=>{const x=ord.indexOf(P[a].slot),y=ord.indexOf(P[b].slot);return (x<0?99:x)-(y<0?99:y)||a-b;});}
   if(isU12(m.cat)){const rk={D1:0,D3:1,D2:2};const sg=idx.filter(i=>P[i].t!=='D'),db=idx.filter(i=>P[i].t==='D').sort((a,b)=>(rk[P[a].slot]??9)-(rk[P[b].slot]??9));idx.length=0;idx.push(...sg,...db);}
   idx.push(...extrasOf(m.id).map((_,j)=>XB+j));if(isKO(m.id))idx.push(P.length);return idx;}
@@ -1026,15 +1028,19 @@ function roInner(m){const r=S.res[m.id]||{};if(r.wo)return '<div>Victoire par fo
     const res=live?`<b style="color:#e0493a">● Live ${h(liveTxt(S.live[m.id+'#'+i],replay(S.live[m.id+'#'+i])))}${(r=>r.srv?' · 🎾 '+h(srvName(m,i,r)):'')(replay(S.live[m.id+'#'+i]))}</b>`:sc?(st&&st.w?`<b>${h(sc)}</b>`:`<b style="color:#e0493a">● ${h(fmtScore(sc))}</b>`):'<span style="opacity:.7">à jouer</span>';
     const w1=st&&st.w===1,w2=st&&st.w===2;
     return `<div>${h(lab)} : ${w1?'<b>':''}${h(a||'…')}${w1?'</b>':''} – ${w2?'<b>':''}${h(b||'…')}${w2?'</b>':''} · ${res}</div>`;}).join('');return L||'<span>Résultat pas encore saisi.</span>';}
+const homeOf=id=>String((S.res[id]||{}).h||'');
+const homeTag=(m,sd)=>{const hm=homeOf(m.id);return hm?`<small class="hv ${hm===String(sd)?'home':'away'}">${hm===String(sd)?'🏠 visitée':'visiteuse'}</small>`:'';};
+const canHome=m=>canEditM(m)&&(canJA(m)||!valLock(m.id))&&!(syncReady()&&S.sync.role==='marqueur');
 function card(m,tag,when){const r=S.res[m.id]||{p:[],wo:''};const P=PLid(m.id);
   return `<article class="mc${myM(m)?' mine':''}" data-card="${m.id}">
   <div class="mc-h"><span class="tag">${h(tag)}</span><span class="lvb" data-lvb hidden>Live</span><span data-when data-lieu="${h(when||'')}">${h(cardWhen(m,when))}</span></div>
-  <div class="mc-t"><span class="tm${isMine(m.t1)?' me':''}" data-s="1">${h(m.t1)}</span><span class="sb" data-b>– : –</span><span class="tm${isMine(m.t2)?' me':''}" data-s="2">${h(m.t2)}</span></div>
+  <div class="mc-t"><span class="tm${isMine(m.t1)?' me':''}" data-s="1">${h(m.t1)}${homeTag(m,1)}</span><span class="sb" data-b>– : –</span><span class="tm${isMine(m.t2)?' me':''}" data-s="2">${h(m.t2)}${homeTag(m,2)}</span></div>
   <div class="lvs" data-lvs></div>
   <div class="valb" data-valb></div>
   <div class="auth" data-auth></div>
   ${canEditM(m)?`<details><summary>Saisir le score</summary>
   ${canAdmin()?`<label class="hrow">🕒 Heure de la rencontre<input type="time" step="300" data-hour="${m.id}" value="${h(S.hours[m.id]||'')}"></label>`:''}
+  ${canHome(m)?`<label class="hrow">🏠 Équipe visitée<select data-home="${m.id}"><option value="">— non précisé —</option><option value="1"${homeOf(m.id)==='1'?' selected':''}>${h(m.t1)} (visitée) · ${h(m.t2)} (visiteuse)</option><option value="2"${homeOf(m.id)==='2'?' selected':''}>${h(m.t2)} (visitée) · ${h(m.t1)} (visiteuse)</option></select></label>`:''}
   ${orderIdx(m).map(i=>{const p=P[i];const nm=effN(m,i),pl=planned(m,i);const dbl=i>=XB?(extrasOf(m.id)[i-XB]||{}).t==='D':/double/i.test(p);
    const side=(t,v,sd)=>{if(!dbl)return pSelect(m,t,v||'',`n${i}${sd}`,'Joueur '+t);const a=String(v||'').split('/');
      return `<div class="dsel">${pSelect(m,t,a[0]||'',`n${i}${sd}0`,'Joueur 1 '+t)}${pSelect(m,t,a[1]||'',`n${i}${sd}1`,'Joueur 2 '+t)}</div>`;};
@@ -1681,15 +1687,15 @@ function renderPresence(){const box=document.getElementById('presbox');if(!box)r
 function valLock(id){if(!syncReady())return false;const m=getMatch(id);return isValid(id)&&!canJA(m);}
 const roleName=r=>ROLES[r]||'Profil à confirmer';
 const unsent=()=>Object.keys(S.dirty||{}).filter(id=>Object.keys(S.dirty[id]||{}).length);
-function unitV(r,k){r=r||{};if(k==='x')return [String(r.x||'').trim()];if(k==='w')return [String(r.wo||'').trim()];if(k==='v')return [String(r.v||'').trim()];const n=(r.n||[])[k]||[];return [String((r.p||[])[k]||'').trim(),String(n[0]||'').trim(),String(n[1]||'').trim()];}
-function setUnit(r,k,v){if(k==='x'){r.x=v[0]||'';return;}if(k==='w'){r.wo=v[0]||'';return;}if(k==='v'){r.v=v[0]||'';return;}r.p=r.p||[];r.n=Array.from(r.n||[],x=>x||['','']);while(r.n.length<=+k)r.n.push(['','']);r.p[+k]=v[0]||'';r.n[+k]=[v[1]||'',v[2]||''];}
+function unitV(r,k){r=r||{};if(k==='h')return [String(r.h||'').trim()];if(k==='x')return [String(r.x||'').trim()];if(k==='w')return [String(r.wo||'').trim()];if(k==='v')return [String(r.v||'').trim()];const n=(r.n||[])[k]||[];return [String((r.p||[])[k]||'').trim(),String(n[0]||'').trim(),String(n[1]||'').trim()];}
+function setUnit(r,k,v){if(k==='h'){r.h=v[0]||'';return;}if(k==='x'){r.x=v[0]||'';return;}if(k==='w'){r.wo=v[0]||'';return;}if(k==='v'){r.v=v[0]||'';return;}r.p=r.p||[];r.n=Array.from(r.n||[],x=>x||['','']);while(r.n.length<=+k)r.n.push(['','']);r.p[+k]=v[0]||'';r.n[+k]=[v[1]||'',v[2]||''];}
 function markDirty(id,k){(S.dirty[id]=S.dirty[id]||{})[k]=1;}
 function markAll(id){const n=Math.max(parts(catOfId(id)).length+1,((S.res[id]||{}).p||[]).length);for(let i=0;i<n;i++)markDirty(id,String(i));markDirty(id,'w');}
 function applyRec(rec,sent){if(Array.isArray(rec)){const d=rec,u={},ts=(+d[3]||0)*1000;(d[1]||[]).forEach((p,i)=>{const n=(d[4]||[])[i]||[];u[i]={v:[p||'',n[0]||'',n[1]||''],ts,by:''};});if(d[2])u.w={v:[d[2]],ts,by:''};rec={id:d[0],u};}
   if(!rec||!rec.id||!getMatch(rec.id))return false;const id=rec.id,r=S.res[id]=S.res[id]||{p:[],wo:'',n:[]};r.pb=r.pb||{};let ch=false,mx=0;
   Object.entries(rec.u||{}).forEach(([k,u])=>{if(!u)return;if(S.resetSec&&(u.ts||0)<S.resetSec*1000)return;mx=Math.max(mx,u.ts||0);
     const cur=unitV(r,k);if(S.dirty[id]&&S.dirty[id][k]){const sv=sent&&sent[id]&&sent[id][k];if(!sv||JSON.stringify(sv)!==JSON.stringify(cur))return;delete S.dirty[id][k];}
-    r.pb[k]=u.ts;(r.by=r.by||{})[k]=u.by||'';(r.bt=r.bt||{})[k]=u.ts||0;const nv=(u.v||[]).map(x=>String(x||''));if(JSON.stringify(cur)!==JSON.stringify(k==='w'||k==='v'||k==='x'?[nv[0]||'']:[nv[0]||'',nv[1]||'',nv[2]||''])){setUnit(r,k,nv);ch=true;}});
+    r.pb[k]=u.ts;(r.by=r.by||{})[k]=u.by||'';(r.bt=r.bt||{})[k]=u.ts||0;const nv=(u.v||[]).map(x=>String(x||''));if(JSON.stringify(cur)!==JSON.stringify(k==='w'||k==='v'||k==='x'||k==='h'?[nv[0]||'']:[nv[0]||'',nv[1]||'',nv[2]||''])){setUnit(r,k,nv);ch=true;}});
   if(mx)S.ts[id]=Math.max(S.ts[id]||0,Math.floor(mx/1000));if(S.dirty[id]&&!Object.keys(S.dirty[id]).length)delete S.dirty[id];return ch;}
 function doneLock(id,k){if(!syncReady()||canJA(getMatch(id)))return false;const r=S.res[id];if(!r||!r.pb||!r.pb[k]||(S.dirty[id]&&S.dirty[id][k]))return false;
   if(k==='w')return !!r.wo;const nx=+k===parts(catOfId(id)).length;const st=partie((r.p||[])[k],nx?1:2,nx);return !!(st&&st.w);}
@@ -1842,7 +1848,7 @@ function syncUI(){const b=document.getElementById('syncst');if(!b)return;if(!syn
   b.title=S.sync.err||'Synchroniser maintenant';}
 document.getElementById('syncst').addEventListener('click',()=>syncNow(true));
 document.getElementById('who').addEventListener('click',()=>{S.tab='data';save();render();window.scrollTo(0,0);});
-const APP_VERSION='2026-09-28 09:00';
+const APP_VERSION='2026-09-28 15:00';
 const DEFAULT_APP_URL='https://mrani-hub.github.io/tennis-jeunes-7q4/';
 const appUrl=()=>{const u=String(S.appUrl||'').trim();if(/^https:\/\//.test(u))return u.replace(/#.*$/,'');return /^https:$/.test(location.protocol)?location.origin+location.pathname:DEFAULT_APP_URL;};
 const inviteLink=code=>appUrl()?appUrl()+'#i='+code:'';
@@ -2003,7 +2009,7 @@ function rulesPanel(){const cfg=S.cfg||{};const ed=canAdmin();
     <li>En phase finale, la rencontre s'arrête dès que la victoire est mathématiquement acquise.</li></ul>
    ${ed?`<label style="font-size:13.5px">Nombre de doubles en 11-12 ans : <select id="u12d"><option value="1"${+cfg.u12d!==2?' selected':''}>1 double</option><option value="2"${+cfg.u12d===2?' selected':''}>2 doubles (garçons, filles)</option><option value="3"${+cfg.u12d===3?' selected':''}>3 doubles (2 garçons, 1 filles)</option></select></label>`:''}
    <h4>13-14 ans et 15-18 ans (filles et garçons)</h4>
-   <ul><li><b>Composition</b> : ${Object.keys(GRP).map(g=>`${GRP[g]} : <b>${COMPS[((S.cfg||{}).comp||{})[g]||'2-1']}</b>`).join(' · ')}. Ordre : simples du numéro le plus élevé au n°1, puis ${'le'} double (après 30 min). Numéros selon le classement adulte du 31 août 2026. Une joueuse ou un joueur manquant : équipe disqualifiée.</li>
+   <ul><li><b>Composition</b> : ${Object.keys(GRP).map(g=>`${GRP[g]} : <b>${COMPS[((S.cfg||{}).comp||{})[g]||'2-1']}</b>`).join(' · ')}. Ordre d'affichage : simples n°1, n°2…, puis le ou les doubles (après 30 min). Numéros selon le classement adulte du 31 août 2026. Une joueuse ou un joueur manquant : équipe disqualifiée.</li>
     <li><b>Simples</b> : au meilleur des 3 sets, jeu décisif à 6-6 dans les 3 sets.</li>
     <li><b>Double</b> : 2 sets gagnants, jeu décisif à 6-6, 3e set en super tie-break, point décisif (No Ad).</li></ul>
    ${ed?`<div class="cgrid2" style="max-width:520px;margin:6px 0">${Object.keys(GRP).map(g=>`<span>${GRP[g]}</span><select data-comp="${g}">${Object.entries(COMPS).map(([v,l])=>`<option value="${v}"${(((S.cfg||{}).comp||{})[g]||'2-1')===v?' selected':''}>${l}</option>`).join('')}</select>`).join('')}</div>
@@ -2114,6 +2120,7 @@ main.addEventListener('change',e=>{const t=e.target;
   if(t.id==='shdate'){S.sh.date=t.value;S.sh.lieu='';save();renderShare();return;}
   if(t.id==='shlieu'){S.sh.lieu=t.value;save();renderShare();return;}
   if(t.id==='shmine'){S.sh.mine=t.checked;save();renderShare();return;}
+  if(t.dataset.home){const id=t.dataset.home,m=getMatch(id);if(!m||!canHome(m))return;const r=S.res[id]=S.res[id]||{p:[],wo:'',n:[]};r.h=t.value;markDirty(id,'h');S.ts[id]=now();save();render();toast(t.value?'Équipe visitée : '+(t.value==='1'?m.t1:m.t2):'Équipe visitée effacée');return;}
   if(t.dataset.ptsg){if(!canAdmin())return;const [g,w]=t.dataset.ptsg.split('|');let v=String(t.value).replace(',','.').trim();v=v===''?(w==='d'?2:1):Math.round(Math.max(0,Math.min(10,+v||0))*2)/2;
     const cur=Object.assign({},(S.cfg||{}).pts);cur[g]=Object.assign({},cur[g],{[w]:v});S.cfg=Object.assign({},S.cfg,{pts:cur});
     if(syncReady()){S.fin['cfg:pts']=JSON.stringify(cur);S.finTs['cfg:pts']=now();}save();render();toast(`${PGRP[g]} : ${w==='d'?'double':'simple'} = ${fmtPts(v)} pt`);return;}
