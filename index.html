@@ -594,6 +594,9 @@ body.marqm .wosel{display:inline-block}
 .padk button:active{background:var(--ball);color:#10233a}
 .padtb{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:8px 0}
 .padtb button{min-width:44px;min-height:44px;border-radius:9px;border:1px solid var(--ball);background:transparent;color:#fff;font:700 16px var(--fb)}
+.plg{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:8px}
+.plg h5{margin:0 0 4px;color:var(--ball);font:700 14px var(--fb)}
+.plg .pl{margin:4px 0 6px;max-height:48vh}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -648,7 +651,7 @@ const fmtPts=x=>String(+x).replace('.',',');
 function parts(c){const pt=ptsOf(c),k=c.id+'|'+((S&&S.cfg&&S.cfg.u12d)||1)+'|'+(isU12(c)?'':compOf(c).join('-'))+'|'+pt.s+'/'+pt.d;if(PCACHE[k])return PCACHE[k];let P;
   if(isU12(c)){P=[['11G1','11 ans Garçons n°1'],['11G2','11 ans Garçons n°2'],['11F2','11 ans Filles n°2'],['12F1','12 ans Filles n°1'],['12F2','12 ans Filles n°2'],['11F1','11 ans Filles n°1'],['12G1','12 ans Garçons n°1'],['12G2','12 ans Garçons n°2']]
       .map(([slot,l])=>({slot,l,t:'S',pts:1,tb:5,stb:true,noad:true}));
-    const nd=+((S&&S.cfg&&S.cfg.u12d)||1);(nd===3?[['D1','Double garçons n°1'],['D2','Double filles'],['D3','Double garçons n°2']]:nd===2?[['D1','Double garçons'],['D2','Double filles']]:[['D1','Double']]).forEach(([slot,l])=>P.push({slot,l,t:'D',pts:2,tb:5,stb:true,noad:true}));}
+    const nd=+((S&&S.cfg&&S.cfg.u12d)||1);(nd===3?[['D1','Double garçons 11 ans'],['D2','Double filles 11/12 ans'],['D3','Double garçons 12 ans']]:nd===2?[['D1','Double garçons'],['D2','Double filles']]:[['D1','Double']]).forEach(([slot,l])=>P.push({slot,l,t:'D',pts:2,tb:5,stb:true,noad:true}));}
   else{const [nS,nD]=compOf(c);const S_=n=>({slot:'S'+n,l:'Simple n°'+n,t:'S',pts:1,tb:6,stb:false,noad:false}),D_=n=>({slot:'D'+n,l:nD>1?'Double n°'+n:'Double',t:'D',pts:2,tb:6,stb:true,noad:true});
     /* index fixes : S2, S1, D1 (déjà utilisés par les résultats), puis S3, S4, D2 */
     P=[S_(2),S_(1),D_(1)];if(nS>=3)P.push(S_(3));if(nS>=4)P.push(S_(4));if(nD>=2)P.push(D_(2));}
@@ -665,7 +668,8 @@ const PL=c=>parts(c).map(x=>x.l);
 const PLid=id=>{const c=catOfId(id),a=PL(c).slice();if(isKO(id))a[a.length]=DECIDER.l;extrasOf(id).forEach((x,j)=>a[XB+j]=x.l);return a;};
 function orderIdx(m){const P=parts(m.cat),idx=P.map((_,i)=>i);
   if(!isU12(m.cat)){const rk={S1:0,S2:1,S3:2,S4:3,D1:4,D2:5};idx.sort((a,b)=>rk[P[a].slot]-rk[P[b].slot]);}
-  if(isU12(m.cat)&&isKO(m.id)){const ord=['11F1','11F2','11G1','11G2','12F1','12F2','12G1','12G2'];idx.sort((a,b)=>{const x=ord.indexOf(P[a].slot),y=ord.indexOf(P[b].slot);return (x<0?99:x)-(y<0?99:y)||a-b;});}
+  /* 11-12 ans : garçons 11 puis 12, filles 11 puis 12, puis doubles garçons 11, garçons 12, filles */
+  if(isU12(m.cat)){const ord=['11G1','11G2','12G1','12G2','11F1','11F2','12F1','12F2'];idx.sort((a,b)=>{const x=ord.indexOf(P[a].slot),y=ord.indexOf(P[b].slot);return (x<0?99:x)-(y<0?99:y)||a-b;});}
   if(isU12(m.cat)){const rk={D1:0,D3:1,D2:2};const sg=idx.filter(i=>P[i].t!=='D'),db=idx.filter(i=>P[i].t==='D').sort((a,b)=>(rk[P[a].slot]??9)-(rk[P[b].slot]??9));idx.length=0;idx.push(...sg,...db);}
   idx.push(...extrasOf(m.id).map((_,j)=>XB+j));if(isKO(m.id))idx.push(P.length);return idx;}
 
@@ -884,7 +888,7 @@ function addList(c,t,items){const k=rkey(c,t);const L=Array.from(S.roster[k]||[]
   for(let i=0;i<L.length;i++)if(T[i]===undefined)T[i]='';
   S.roster[k]=L;S.rosterTag[k]=T;const filled=L.length;if(filled>nbJ(c,t))S.nbj[k]=Math.min(30,filled);S.rosterTs[k]=now();return add;}
 function parseList(c,txt){return String(txt||'').split(/\n/).map(l=>l.trim()).filter(Boolean).map(l=>{const p=l.split(/\s*[;|\t]\s*/);return [p[0].replace(/^[-•*\d.)\s]+/,''),parseTag(c,p[1]||'')];}).filter(x=>x[0]);}
-const nbJ=(c,t)=>{const v=+S.nbj[rkey(c,t)];return v>0?v:S.nbDef;};
+const nbJ=(c,t)=>{const k=rkey(c,t),v=+S.nbj[k],R=Array.from((S.roster||{})[k]||[]);let last=0;R.forEach((x,i)=>{if(String(x||'').trim())last=i+1;});/* jamais moins que le nombre de joueurs inscrits dans l'effectif */return Math.max(v>0?v:S.nbDef,last);};
 const pname=(c,t,k)=>{const n=String(roster(c,t)[k-1]||'').trim();return n||`Joueur N°${k}`;};
 const idxs=v=>String(v||'').split('/').map(x=>parseInt(x,10)).filter(x=>x>0);
 const pnames=(c,t,v)=>idxs(v).map(k=>pname(c,t,k)).join(' / ');
@@ -901,12 +905,19 @@ const legacyToIdx=(c,t,v)=>{const a=String(v||'').split('/').map(x=>x.trim());if
 function sexOf(c,i,id){if(!isU12(c)||i===undefined)return '';const pc=partOf(c,+i,id);if(pc.t==='S'&&/^\d\d[GF]/.test(pc.slot||''))return pc.slot.charAt(2);return /garçons/i.test(pc.l||'')?'G':/filles/i.test(pc.l||'')?'F':'';}
 const sexOk=(c,t,i,g)=>{if(!g)return true;const tg=String(ptag(c,t,i)||'');return !tg||tg.endsWith(g);};
 function pairLab(c,t,a){const x=(a||[]).filter(Boolean);return x.length?`👥 ${h(x.map(i=>pnameC(c,t,+i)).join(' / '))} <span class="ph">✎</span>`:'<span class="ph">👥 Choisir la paire (2 joueurs)</span>';}
-function openPair(btn){const [q1,q2,title]=JSON.parse(btn.dataset.pair);const s1=document.querySelector(q1),s2=document.querySelector(q2);if(!s1||!s2)return;if(s1.disabled||btn.disabled){toast('Partie verrouillée');return;}
-  const opts=[...s1.options].filter(o=>o.value);let sel=[s1.value,s2.value].filter(Boolean);ovOpen('pair');
-  const draw=()=>{OV.innerHTML=`<div class="ov-h"><div><b style="color:#fff;font-size:15px">👥 ${h(title)}</b><br>Touchez deux joueurs, puis Valider.</div><button class="ov-x" data-ov="close">Fermer</button></div>
-    <div class="pl">${opts.map(o=>{const on=sel.includes(o.value),dis=o.disabled&&!on;return `<label class="${on?'on':''}${dis?' off':''}"><input type="checkbox" data-pp="${o.value}"${on?' checked':''}${dis?' disabled':''}> <span>${h(o.textContent.split(' · ')[0])}</span><small>${h(o.textContent.split(' · ').slice(1).join(' · '))}</small></label>`;}).join('')}</div>
-    <div class="lact"><button class="btn pri" data-ppok${sel.length===2||sel.length===0?'':' disabled'}>Valider${sel.length===2?'':sel.length===0?' (aucun joueur)':' (choisissez-en un 2e)'}</button><button class="btn" data-ppclr>Effacer</button></div>`;};
-  PAIR={s1,s2,get sel(){return sel;},set sel(v){sel=v;},draw};draw();}
+function openPair(btn){
+  /* les deux équipes sur la même feuille (saisie d'une rencontre) ; une seule pour le coach */
+  const pb=btn.closest('.pb'),btns=pb?[...pb.querySelectorAll('.pairb')]:[btn];
+  const G=btns.map(b=>{const [q1,q2,title]=JSON.parse(b.dataset.pair);const s1=document.querySelector(q1),s2=document.querySelector(q2);if(!s1||!s2)return null;
+    return {b,key:b.dataset.pair,q2,s1,s2,title,lock:s1.disabled||b.disabled,opts:[...s1.options].filter(o=>o.value),sel:[s1.value,s2.value].filter(Boolean)};}).filter(Boolean);
+  if(!G.length)return;if(G.every(g=>g.lock)){toast('Partie verrouillée');return;}ovOpen('pair');
+  const ok=()=>G.every(g=>g.lock||g.sel.length===0||g.sel.length===2);
+  const draw=()=>{OV.innerHTML=`<div class="ov-h"><div><b style="color:#fff;font-size:15px">👥 ${h(G[0].title.split(' · ').slice(1).join(' · ')||'Double')}</b><br>Touchez deux joueurs par équipe, puis Valider.</div><button class="ov-x" data-ov="close">Fermer</button></div>
+    <div class="plg">${G.map((g,gi)=>`<div><h5>${h(g.title.split(' · ')[0])}${g.sel.length===2?' ✓':g.sel.length?' · 1/2':''}</h5><div class="pl">${g.opts.map(o=>{const on=g.sel.includes(o.value),dis=(o.disabled&&!on)||g.lock;
+      return `<label class="${on?'on':''}${dis?' off':''}"><input type="checkbox" data-pp="${gi}|${o.value}"${on?' checked':''}${dis?' disabled':''}> <span>${h(o.textContent.split(' · ')[0])}</span><small>${h(o.textContent.split(' · ').slice(1).join(' · '))}</small></label>`;}).join('')}</div>
+      ${g.lock?'':`<button class="btn sm" data-ppclr="${gi}">Effacer</button>`}</div>`).join('')}</div>
+    <div class="lact"><button class="btn pri" data-ppok${ok()?'':' disabled'}>Valider${ok()?'':' (2 joueurs par équipe)'}</button></div>`;};
+  PAIR={G,draw};draw();}
 let PAIR=null;
 let PAD=null;
 function openPad(id,i){const m=getMatch(id),c=catOfId(id),pc=partOf(c,+i,id),inp=main.querySelector(`input.scin[data-id="${id}"][data-k="${i}"]`);if(!m||!inp)return;
@@ -1989,9 +2000,17 @@ OV.addEventListener('click',e=>{const t=e.target;
     if(t.closest('[data-pok]')){padWrite();return;}
     if(t.closest('[data-pcur]')){const v=prompt('Score du set en cours, vu de gauche (ex. 3-2) :','');if(v&&/^\s*\d{1,2}\s*-\s*\d{1,2}\s*$/.test(v))padWrite(v.replace(/\s/g,''));return;}
     if(t.closest('[data-pkb]')){const inp=P.inp;PAD=null;ovClose();setTimeout(()=>{inp.focus();},50);return;}}
-  if(OVMODE==='pair'&&PAIR){const cb=t.closest('[data-pp]');if(cb){const v=cb.dataset.pp;let s0=PAIR.sel.slice();if(s0.includes(v))s0=s0.filter(x=>x!==v);else{if(s0.length>=2)s0.shift();s0.push(v);}PAIR.sel=s0;PAIR.draw();return;}
-    if(t.closest('[data-ppclr]')){PAIR.sel=[];PAIR.draw();return;}
-    if(t.closest('[data-ppok]')){const [a,b]=PAIR.sel;const {s1,s2}=PAIR;ovClose();s1.value=a||'';s1.dispatchEvent(new Event('change',{bubbles:true}));const s2b=document.querySelector(`select[${s2.hasAttribute('data-dz')?'data-dz="'+s2.dataset.dz+'"':'data-id="'+s2.dataset.id+'"][data-k="'+s2.dataset.k+'"'}]`)||s2;s2b.value=b||'';s2b.dispatchEvent(new Event('change',{bubbles:true}));PAIR=null;render();return;}}
+  if(OVMODE==='pair'&&PAIR){const cb=t.closest('[data-pp]');if(cb){const [gi,v]=cb.dataset.pp.split('|'),g=PAIR.G[+gi];let s0=g.sel.slice();if(s0.includes(v))s0=s0.filter(x=>x!==v);else{if(s0.length>=2)s0.shift();s0.push(v);}g.sel=s0;PAIR.draw();return;}
+    const cl=t.closest('[data-ppclr]');if(cl){PAIR.G[+cl.dataset.ppclr].sel=[];PAIR.draw();return;}
+    if(t.closest('[data-ppok]')){const G=PAIR.G;PAIR=null;ovClose();let card=null,first=null;
+      G.forEach(g=>{if(g.lock)return;const [a,b]=g.sel;const s1=document.querySelector(JSON.parse(g.key)[0])||g.s1;s1.value=a||'';s1.dispatchEvent(new Event('change',{bubbles:true}));
+        const s2=document.querySelector(g.q2)||g.s2;s2.value=b||'';s2.dispatchEvent(new Event('change',{bubbles:true}));
+        /* on reste sur la partie : mise à jour sur place, sans recharger la page */
+        const bt=[...document.querySelectorAll('[data-pair]')].find(x=>x.dataset.pair===g.key)||g.b;if(!bt)return;
+        const nm=o=>o&&o.value?o.textContent.split(' · ')[0]+(/clt (\d+)/.exec(o.textContent)?' ('+/clt (\d+)/.exec(o.textContent)[1]+')':''):'';const x=[nm(s1.selectedOptions[0]),nm(s2.selectedOptions[0])].filter(Boolean);
+        bt.innerHTML=x.length?`👥 ${h(x.join(' / '))} <span class="ph">✎</span>`:'<span class="ph">👥 Choisir la paire (2 joueurs)</span>';first=first||bt;card=card||bt.closest('[data-card]');});
+      const pb=first&&first.closest('.pb,.dzr');if(pb){try{pb.scrollIntoView({block:'center'});}catch(e){}pb.style.outline='2px solid var(--ball)';setTimeout(()=>{pb.style.outline='';},1200);}
+      if(card)updateCard(card.dataset.card);return;}}
   if(OVMODE==='pinv'){const b=t.closest('[data-pj]');if(!b)return;const [k1,k2,i,how]=b.dataset.pj.split('|');const k=k1+'|'+k2;const inv=syncInvite('joueur',k,+i);if(!inv){toast('Lien indisponible');return;}
     if(how==='link'){copyText(inv.link||inv.code);return;}if(how==='qr'){const back=k;showQR('',inv.code);return;}doShare(inv.text,navigator.share?'native':'wa');return;}
   if(OVMODE==='jaall'){const b=t.closest('[data-jx]');if(!b)return;const [a,v]=b.dataset.jx.split('|');
@@ -2200,7 +2219,7 @@ function syncUI(){const b=document.getElementById('syncst');if(!b)return;if(!syn
   b.title=S.sync.err||'Synchroniser maintenant';}
 document.getElementById('syncst').addEventListener('click',()=>syncNow(true));
 document.getElementById('who').addEventListener('click',()=>{S.tab='data';save();render();window.scrollTo(0,0);});
-const APP_VERSION='2026-10-01 09:00';
+const APP_VERSION='2026-10-01 13:00';
 const DEFAULT_APP_URL='https://mrani-hub.github.io/tennis-jeunes-7q4/';
 const appUrl=()=>{const u=String(S.appUrl||'').trim();if(/^https:\/\//.test(u))return u.replace(/#.*$/,'');return /^https:$/.test(location.protocol)?location.origin+location.pathname:DEFAULT_APP_URL;};
 const inviteLink=code=>appUrl()?appUrl()+'#i='+code:'';
