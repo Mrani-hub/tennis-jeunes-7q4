@@ -557,6 +557,14 @@ body.marqm nav,body.marqm .xadd,body.marqm .mc-f select[data-k="wo"],body.marqm 
 .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px}
 .kpi b{display:block;font:700 22px var(--fd)}.kpi small{color:var(--muted);font-size:12px}
 .anote{font-size:12.5px;color:var(--muted);margin:4px 0 10px}
+/* Préparation de rencontre */
+.prep{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px}
+.vs2{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;text-align:center;margin:6px 0 10px}
+.vs2 b{font:700 17px var(--fd)}.vs2 .x{font:700 13px var(--fb);color:var(--muted)}
+.cmp{width:100%;border-collapse:collapse;font-size:13px}.cmp td{padding:5px 6px;border-top:1px solid var(--line);text-align:center}.cmp td:nth-child(2){color:var(--muted);font-size:12px}
+.cmp .bt{font-weight:700;color:var(--win)}
+.mx{border-collapse:collapse;font-size:12px}.mx th,.mx td{padding:4px 5px;border:1px solid var(--line);text-align:center;white-space:nowrap}.mx th{font-weight:600}.mx td.nm{text-align:left}
+.pp{display:inline-block;min-width:38px;border-radius:5px;padding:1px 4px;font-weight:700}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -972,9 +980,9 @@ const main=document.getElementById('main');
 function render(){
   {const arbOK=syncReady()&&(S.sync.role==='ja'||S.sync.role==='admin');const ta=document.getElementById('tabArb');if(ta){ta.hidden=!arbOK;ta.textContent='⚖️ Arbitrage'+(S.sync.role==='ja'&&S.sync.venue?' · '+S.sync.venue:'');}
    const rl=syncReady()?S.sync.role:'';const tm=document.getElementById('tabMine');if(tm)tm.hidden=['ja','coach','joueur'].includes(rl);
-   const tc=document.getElementById('tabCoach');if(tc){tc.hidden=rl!=='coach';tc.textContent='🧢 Coach'+(rl==='coach'?' · '+teamOfKey(S.sync.team)[1]:'');}const tj=document.getElementById('tabJoueur');if(tj)tj.hidden=rl!=='joueur';
+   const tc=document.getElementById('tabCoach');if(tc){tc.hidden=!(rl==='coach'||canAdmin());tc.textContent='🧢 Coach'+(rl==='coach'||canAdmin()?' · '+(teamOfKey(coachKey())[1]||''):'');}const tj=document.getElementById('tabJoueur');if(tj)tj.hidden=rl!=='joueur';
    document.body.classList.toggle('marqm',rl==='marqueur');if(rl==='marqueur')S.tab='marq';else if(S.tab==='marq')S.tab='cat';
-   if(S.tab==='coach'&&rl!=='coach')S.tab='cat';if(S.tab==='joueur'&&rl!=='joueur')S.tab='cat';if(S.tab==='mine'&&rl==='coach')S.tab='coach';if(S.tab==='mine'&&rl==='joueur')S.tab='joueur';
+   if(S.tab==='coach'&&rl!=='coach'&&!canAdmin())S.tab='cat';if(S.tab==='joueur'&&rl!=='joueur')S.tab='cat';if(S.tab==='mine'&&rl==='coach')S.tab='coach';if(S.tab==='mine'&&rl==='joueur')S.tab='joueur';
    if(S.tab==='arb'&&!arbOK)S.tab='cat';if(S.tab==='mine'&&syncReady()&&S.sync.role==='ja')S.tab='arb';}
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab===S.tab));
   {const n=liveEntries().filter(x=>!x.R.w).length;document.getElementById('tabLive').textContent='● Live'+(n?` (${n})`:'');}
@@ -1269,21 +1277,29 @@ const AV={ok:'✅ disponible',no:'❌ indisponible',bl:'🤕 blessé(e)'};
 function playerOpts(k,val,dis){const [c,t]=teamOfKey(k),n=nbJ(c,t),C=(S.rosterClt||{})[k]||[];
   return '<option value="">—</option>'+Array.from({length:n},(_,i)=>i+1).map(i=>{const a=availOf(k,i),nm=pname(c,t,i),tg=ptag(c,t,i);
     return `<option value="${i}"${String(val)===String(i)?' selected':''}${a!=='ok'&&String(val)!==String(i)?' disabled':''}>${a!=='ok'?(a==='bl'?'🤕 ':'❌ '):''}${h(nm)}${tg?' · '+h(tagLabel(tg)):''}${C[i-1]?' · clt '+h(C[i-1]):''}</option>`;}).join('');}
-function renderCoach(){const k=S.sync.team,[c,t]=teamOfKey(k);if(!c){main.innerHTML='<div class="empty">Équipe inconnue : demandez une nouvelle invitation à l\'organisateur.</div>';return;}
+function coachKey(){if(syncReady()&&S.sync.role==='coach')return S.sync.team;const all=allTeamKeys();if(S.coachTeam&&all.includes(S.coachTeam))return S.coachTeam;
+  const mine=all.find(k=>S.myClub&&base(teamOfKey(k)[1])===S.myClub);return mine||all[0];}
+function coachPicker(){if(syncReady()&&S.sync.role==='coach')return '';const k=coachKey();
+  return `<div class="anah"><label style="font-weight:600">🛠️ Vue organisateur · équipe :</label><select id="coachpick">${CATS.map(c=>`<optgroup label="${h(catLabel(c))}">${teamsOf(c).map(t=>`<option value="${h(rkey(c,t))}"${rkey(c,t)===k?' selected':''}>${h(t)} · ${h(catLabel(c))}</option>`).join('')}</optgroup>`).join('')}</select></div>`;}
+function renderCoach(){const k=coachKey(),[c,t]=teamOfKey(k);if(!c){main.innerHTML='<div class="empty">Équipe inconnue : demandez une nouvelle invitation à l\'organisateur.</div>';return;}
   const n=nbJ(c,t),stats={};playerStats(c).filter(o=>o.t===t).forEach(o=>stats[o.k]=o);const C=(S.rosterClt||{})[k]||[];
   const rows=Array.from({length:n},(_,i)=>i+1).map(i=>({i,nm:pname(c,t,i),tg:ptag(c,t,i),clt:C[i-1]||'',o:stats[i]||{sv:0,sd:0,dv:0,dd:0,sw:0,sl:0,b:[]}}))
     .sort((a,b)=>(parseInt(a.clt,10)||9999)-(parseInt(b.clt,10)||9999)||a.i-b.i);
   const ms=teamMatches(k),todo=ms.filter(m=>!ev(m.id).done),done=ms.filter(m=>ev(m.id).done);
-  let x=`<div class="hero"><div class="nm"><small>Coach</small><b>🧢 ${h(t)}</b></div><div class="st"><span>${n}<small>joueurs</small></span><span>${done.length}<small>rencontres jouées</small></span><span>${todo.length}<small>à venir</small></span></div></div>
+  let x=coachPicker()+`<div class="hero"><div class="nm"><small>Coach</small><b>🧢 ${h(t)}</b></div><div class="st"><span>${n}<small>joueurs</small></span><span>${done.length}<small>rencontres jouées</small></span><span>${todo.length}<small>à venir</small></span></div></div>
    <h3>Effectif et statistiques</h3><div class="tbl"><div class="sc-wrap"><table class="ctab"><thead><tr><th>#</th><th>Joueur</th><th>Clt</th><th>Disponibilité</th><th>Simples</th><th>Doubles</th><th>Sets</th></tr></thead><tbody>
    ${rows.map(r=>`<tr><td>${r.i}</td><td><b>${h(r.nm)}</b>${r.tg?`<span class="ptag">${h(tagLabel(r.tg))}</span>`:''}${(r.o.b||[]).map(([e,tt])=>`<span class="bdg" title="${h(tt)}">${e}</span>`).join('')}</td><td>${h(r.clt||'–')}${(((S.rosterPts||{})[k])||[])[r.i-1]?`<br><small>${h(fmtPts((((S.rosterPts||{})[k])||[])[r.i-1]))} pts</small>`:''}</td>
      <td><select data-av="${h(k)}|${r.i}">${Object.entries(AV).map(([v,l])=>`<option value="${v}"${availOf(k,r.i)===v?' selected':''}>${l}</option>`).join('')}</select></td>
      <td>${r.o.sv}-${r.o.sd}</td><td>${r.o.dv}-${r.o.dd}</td><td>${r.o.sw-r.o.sl>0?'+':''}${r.o.sw-r.o.sl}</td></tr>`).join('')}</tbody></table></div></div>
    <p class="legend">Classement et noms : onglet <button class="linkb" data-gotab="champ">Championnat</button>. Un joueur indisponible ou blessé ne peut pas être désigné.</p>
+   ${(()=>{const L=rows.map(r=>({r,sv:playerServe(c,t,r.i)})).filter(x=>x.sv.s.n||x.sv.d.n);if(!L.length)return '<p class="anote">Service et retour : les statistiques apparaîtront dès que des parties de l\'équipe seront comptées en Live.</p>';
+     return `<h3>🎾 Service et retour (parties comptées en Live)</h3><div class="tbl"><div class="sc-wrap"><table class="anat"><thead><tr><th>Joueur</th><th>Parties</th><th>Jeux de service gagnés</th><th>Breaks</th><th>Balles de break sauvées</th><th>Converties</th><th>À retenir</th></tr></thead><tbody>
+      ${L.map(({r,sv})=>{const x=addSt(Object.assign({n:0},sv.s),sv.d),I=svInsights(x);return `<tr><td class="w"><b>${h(r.nm)}</b></td><td>${x.n}</td><td>${pctS(x.hold,x.sg)}</td><td>${pctS(x.brk,x.rg)}</td><td>${pctS(x.bps,x.bpf)}</td><td>${pctS(x.bpw,x.bpc)}</td><td class="w"><small>${I.F.length?'💪 '+h(I.F[0]):''}${I.F.length&&I.W.length?'<br>':''}${I.W.length?'⚠️ '+h(I.W[0]):''}</small></td></tr>`;}).join('')}</tbody></table></div></div>`;})()}
    <h3>Numérotation par défaut</h3>${compoHTML(c,t)}
    <h3>Désignations pour les rencontres (${todo.length})</h3>
    <p class="legend" style="margin-top:-4px">Les joueurs choisis sont inscrits directement sur la feuille de match et prévenus sur leur appli. Une partie commencée ne peut plus être modifiée.</p>
    ${todo.length?todo.map(m=>coachCard(m,k)).join(''):'<div class="empty">Aucune rencontre à venir.</div>'}
+   <h3>🔍 Préparer une rencontre</h3>${todo.length?`<div class="anah"><select id="prepm">${todo.map(m=>`<option value="${m.id}"${S.prepM===m.id?' selected':''}>${h(m.t1===t?m.t2:m.t1)} · ${m.date?h(DSHORT[m.date]):h(m.tag||'Phase finale')}</option>`).join('')}</select></div>${prepHTML(getMatch(todo.some(m=>m.id===S.prepM)?S.prepM:todo[0].id),t)}`:'<div class="empty">Aucune rencontre à préparer.</div>'}
    <h3>Inviter mes joueurs</h3><p class="legend" style="margin-top:-4px">Chaque joueur reçoit un lien personnel pour suivre son parcours et ses désignations.</p>
    <div class="actions"><button class="btn pri" data-pinv="${h(k)}">🎾 Liens personnels des joueurs</button></div>`;
   main.innerHTML=x;}
@@ -1296,7 +1312,7 @@ function coachCard(m,k){const [c,t]=teamOfKey(k),sd=m.t1===t?0:1,opp=sd?m.t1:m.t
   const pr=predict(teamRatings(c),t,opp);
   return `<div class="dzc"><h4><span>${h(t)} – ${h(opp)}<br><small>Difficulté attendue : ${Math.round(pr.diff)}/100 · ${diffLab(pr.diff)[0]} · favori ${h(pr.fav)} (${pr.conf} %)</small></span><small>${m.date?h(DLONG[m.date])+' · '+h(whenTxt(m,m.lieu))+' · 📍 '+h(venueName(m.lieu)):h(m.tag||'Phase finale')}</small></h4>${rowsH}
    <div class="actions" style="margin-top:6px"><button class="btn sm" data-dzall="${m.id}">Confirmer la numérotation pour cette rencontre</button></div></div>`;}
-function coachSet(id,i,slot,val){const m=getMatch(id),k=S.sync.team,[c,t]=teamOfKey(k);if(!m||(m.t1!==t&&m.t2!==t))return;const sd=m.t1===t?0:1;
+function coachSet(id,i,slot,val){const m=getMatch(id),k=coachKey(),[c,t]=teamOfKey(k);if(!m||(m.t1!==t&&m.t2!==t))return;const sd=m.t1===t?0:1;
   const r=S.res[id]=S.res[id]||{p:[],wo:'',n:[]};if(String((r.p||[])[i]||'').trim()||isActive(S.live[id+'#'+i]))return toast('Partie déjà commencée');
   r.n=Array.from(r.n||[],x=>x||['','']);while(r.n.length<=i)r.n.push(['','']);
   if(slot===''){r.n[i][sd]=val;}else{const a=String(r.n[i][sd]||compoVal(c,t,partOf(c,i).slot)||'').split('/');a[+slot]=val;const v=(a[0]||'')+'/'+(a[1]||'');r.n[i][sd]=v==='/'?'':v;}
@@ -1327,6 +1343,7 @@ function renderJoueur(){const k=S.sync.team,[c,t]=teamOfKey(k),me=+S.sync.pidx;i
   const notifBtn=window.Notification&&Notification.permission!=='granted'?'<button class="btn sm" data-pnotif>🔔 Activer les notifications</button>':'';
   main.innerHTML=`<div class="hero"><div class="nm"><small>${h(teamLabel(k))}</small><b>🎾 ${h(nm)}</b></div><div class="st"><span>${o.sv+o.dv}<small>victoires</small></span><span>${o.sd+o.dd}<small>défaites</small></span><span>${h(clt||'–')}<small>classement</small></span></div></div>
    ${(o.b||[]).length?`<p>${o.b.map(([e,tt])=>`<span class="pill ok" title="${h(tt)}">${e} ${h(tt)}</span>`).join(' ')}</p>`:''}
+   ${(()=>{const sv=playerServe(c,t,me);return sv.s.n||sv.d.n?`<h3>🎾 Service et retour</h3>${insightHTML(addSt(Object.assign({n:0},sv.s),sv.d))}${serveTable(sv.s,'En simple')}${serveTable(sv.d,'En double (avec ton partenaire)')}`:`<h3>🎾 Service et retour</h3><p class="anote">Tes statistiques de service apparaîtront dès qu'une de tes parties sera comptée en Live (▶ Live).</p>`;})()}
    <h3>🔔 Mes prochaines désignations</h3>${D.length?D.map(x=>`<div class="pnote"><b>${h(x.lab)} contre ${h(x.sd?x.m.t1:x.m.t2)}</b>${x.m.date?h(DLONG[x.m.date])+' · '+h(whenTxt(x.m,x.m.lieu))+' · 📍 '+h(venueName(x.m.lieu)):'Phase finale'} ${x.m.date?gcal(x.m,c,x.m.lieu):''}</div>`).join(''):'<div class="empty" style="margin-top:0">Aucune désignation pour le moment. Vous serez prévenu(e) dès que votre coach vous aura désigné(e).</div>'}
    <div class="actions">${notifBtn}</div>
    <h3>Mon parcours (${hist.length} partie${hist.length>1?'s':''})</h3>${hist.length?`<div class="tbl"><div class="sc-wrap"><table class="phist"><thead><tr><th>Date</th><th>Partie</th><th>Adversaire</th><th>Score</th><th>Résultat</th></tr></thead><tbody>${hist.map(x=>`<tr><td>${x.m.date?h(DSHORT[x.m.date]):'Finale'}</td><td>${h(x.lab)}${x.mate?'<br><small>avec '+h(x.mate)+'</small>':''}</td><td>${h(x.oppN||'')} <small>(${h(x.opp)})</small></td><td>${h(fmtScore(x.sc))}</td><td>${x.res}</td></tr>`).join('')}</tbody></table></div></div>`:'<p class="legend">Aucune partie jouée pour le moment.</p>'}`;}
@@ -1346,6 +1363,114 @@ function rosterStrength(c,t){const k=rkey(c,t),P=((S.rosterPts||{})[k])||[],C=((
   const L=P.map((x,i)=>({p:+String(x||'').replace(',','.')||0,c:+C[i]||0,i:i+1})).filter(x=>x.p>0||x.c>0).sort((a,b)=>b.p-a.p);
   const top=L.slice(0,ns);return {pts:top.reduce((q,x)=>q+x.p,0),best:L.length?Math.min(...L.filter(x=>x.c).map(x=>x.c)):null,ranked:L.length,ns};}
 const cltOf=(c,t,i)=>{const v=(((S.rosterClt||{})[rkey(c,t)])||[])[(+i||0)-1];return +v||0;};
+/* ================= PRÉPARATION D'UNE RENCONTRE (club contre club, joueur contre joueur) ================= */
+function plInfo(c,t,i){const k=rkey(c,t),pts=+String((((S.rosterPts||{})[k])||[])[i-1]||'').replace(',','.')||0,clt=cltOf(c,t,i);
+  const st=(playerStats(c).find(o=>o.t===t&&o.k===i))||{sv:0,sd:0,dv:0,dd:0,sw:0,sl:0};const pl=st.sv+st.sd;
+  const perf=(st.sv-st.sd)/(pl+2);return {i,t,n:pname(c,t,i),tg:ptag(c,t,i),pts,clt,st,av:availOf(k,i),str:Math.log(1+pts)+0.8*perf};}
+function winP(a,b){const d=clamp((a.str||0)-(b.str||0),-3.2,3.2);return 1/(1+Math.exp(-1.1*d));}
+function pairStr(A){return A.length?A.reduce((q,x)=>q+x.str,0)/A.length:0;}
+const pCol=p=>p>=0.65?'background:rgba(31,168,85,.18);color:var(--win)':p<=0.35?'background:rgba(224,73,58,.15);color:#c0392b':'background:rgba(201,164,0,.15);color:#8a6d00';
+/* joueurs éligibles pour une partie : par âge et sexe en 11-12 ans, toute l'équipe sinon */
+function eligible(c,t,pc){const n=nbJ(c,t),L=Array.from({length:n},(_,i)=>plInfo(c,t,i+1));if(!isU12(c))return L;
+  const sl=pc.slot||'',g=/garçons/i.test(pc.l)?'G':/filles/i.test(pc.l)?'F':'';
+  if(pc.t==='D')return g?L.filter(x=>String(x.tg).endsWith(g)):L;const tg=sl.slice(0,3);return L.filter(x=>x.tg===tg);}
+/* composition probable : joueurs déjà désignés, sinon les meilleurs disponibles par ordre de force (le n°1 est le mieux classé) */
+function probable(m,c,t){const sd=m.t1===t?0:1,r=S.res[m.id]||{},P=parts(c),out={},used={};
+  const groups={};P.forEach((pc,i)=>{if(pc.t!=='S')return;const key=isU12(c)?pc.slot.slice(0,3):'S';(groups[key]=groups[key]||[]).push(i);});
+  Object.entries(groups).forEach(([key,idx])=>{const pc0=P[idx[0]];const pool=eligible(c,t,pc0).filter(x=>x.av==='ok').sort((a,b)=>b.str-a.str);
+    idx.sort((a,b)=>String(P[a].slot).localeCompare(String(P[b].slot))).forEach((i,j)=>{const set=String(((r.n||[])[i]||['',''])[sd]||'');
+      const pl=set?[plInfo(c,t,+set)]:pool[j]?[pool[j]]:[];out[i]={pl,fixed:!!set};});});
+  const dbl=P.map((pc,i)=>[pc,i]).filter(([pc])=>pc.t==='D');const cnt={};
+  dbl.forEach(([pc,i])=>{const set=String(((r.n||[])[i]||['',''])[sd]||'');if(set&&set.includes('/')){out[i]={pl:set.split('/').filter(Boolean).map(x=>plInfo(c,t,+x)),fixed:true};return;}
+    const g=/garçons/i.test(pc.l)?'G':/filles/i.test(pc.l)?'F':'*';const k0=cnt[g]||0;cnt[g]=k0+1;
+    const pool=eligible(c,t,pc).filter(x=>x.av==='ok').sort((a,b)=>b.str-a.str);out[i]={pl:pool.slice(2*k0,2*k0+2),fixed:false};});
+  return out;}
+function h2hList(A,B){const out=[],na=nkey(A),nb=nkey(B);
+  CATS.forEach(c=>{[...c.matches].forEach(m=>{const r=S.res[m.id];if(!r)return;PLid(m.id).forEach((lab,i)=>{const sc=String((r.p||[])[i]||'').trim(),st=partie(sc);if(!st||!st.w)return;
+    const n=effN(m,i),x=nkey(pnames(c,m.t1,n[0])),y=nkey(pnames(c,m.t2,n[1]));if((x===na&&y===nb)||(x===nb&&y===na))out.push({c,m,lab,sc,win:(st.w===1?x:y)===na});});});});return out;}
+function prepHTML(m,me){const c=m.cat||catOfId(m.id),op=m.t1===me?m.t2:m.t1,R0=teamRatings(c),pr=predict(R0,me,op),P=parts(c),tot=P.reduce((q,x)=>q+x.pts,0);
+  const rs1=rosterStrength(c,me),rs2=rosterStrength(c,op);const rec=t=>{let v=0,n=0,d=0,pp=0,pc=0;R0.G.forEach(g=>{if(g.m.t1!==t&&g.m.t2!==t)return;const s1=g.m.t1===t;const a=s1?g.e.p1:g.e.p2,b=s1?g.e.p2:g.e.p1;pp+=a;pc+=b;a>b?v++:a<b?d++:n++;});return {v,n,d,pp,pc};};
+  const r1=rec(me),r2=rec(op);
+  const common=[];teamsOf(c).forEach(x=>{if(x===me||x===op)return;const f=t=>{const g=R0.G.find(g=>(g.m.t1===t&&g.m.t2===x)||(g.m.t2===t&&g.m.t1===x));if(!g)return null;const s1=g.m.t1===t;return [s1?g.e.p1:g.e.p2,s1?g.e.p2:g.e.p1];};const a=f(me),b=f(op);if(a&&b)common.push({x,a,b});});
+  const prev=R0.G.filter(g=>(g.m.t1===me&&g.m.t2===op)||(g.m.t1===op&&g.m.t2===me));
+  const row=(lab,a,b,better)=>`<tr><td class="${better===1?'bt':''}">${a}</td><td>${lab}</td><td class="${better===2?'bt':''}">${b}</td></tr>`;
+  const cmpB=(a,b,hi=true)=>a===b?0:((a>b)===hi?1:2);
+  const PM=probable(m,c,me),PO=probable(m,c,op);let exp=0;
+  const lines=orderIdx(m).filter(i=>i<P.length).map(i=>{const pc=P[i],A=(PM[i]||{}).pl||[],B=(PO[i]||{}).pl||[];const p=A.length&&B.length?winP({str:pairStr(A)},{str:pairStr(B)}):0.5;exp+=p*pc.pts;
+    const nm=L=>L.length?L.map(x=>`${h(x.n)}${x.clt?' <small>('+x.clt+')</small>':''}`).join(' / '):'<small>?</small>';
+    return `<tr><td class="w">${h(pc.l)}</td><td class="w">${nm(A)}${(PM[i]||{}).fixed?' ✓':''}</td><td><span class="pp" style="${pCol(p)}">${Math.round(100*p)} %</span></td><td class="w">${nm(B)}${(PO[i]||{}).fixed?' ✓':''}</td></tr>`;}).join('');
+  const Lme=Array.from({length:nbJ(c,me)},(_,i)=>plInfo(c,me,i+1)).filter(x=>x.av==='ok').sort((a,b)=>b.str-a.str).slice(0,8);
+  const Lop=Array.from({length:nbJ(c,op)},(_,i)=>plInfo(c,op,i+1)).sort((a,b)=>b.str-a.str).slice(0,8);
+  const same=(a,b)=>!isU12(c)||String(a.tg).slice(-1)===String(b.tg).slice(-1);
+  const H=[];Lme.forEach(a=>Lop.forEach(b=>h2hList(a.n,b.n).forEach(x=>H.push(Object.assign(x,{a,b})))));
+  return `<div class="prep">
+   <div class="vs2"><div><b>${h(me)}</b><br><small>indice ${Math.round(R0.idx[me])}</small></div><div class="x">VS</div><div><b>${h(op)}</b><br><small>indice ${Math.round(R0.idx[op])}</small></div></div>
+   <p style="text-align:center;margin:0 0 8px">${dCell(pr.diff)}<br><small>Favori : <b>${h(pr.fav)}</b> (${pr.conf} %) · score estimé ${fmtPts(Math.round(2*tot*(pr.fav===me?pr.sh:1-pr.sh))/2)} – ${fmtPts(Math.round(2*tot*(pr.fav===me?1-pr.sh:pr.sh))/2)} pour ${h(me)}</small></p>
+   <h4>Club contre club</h4><table class="cmp"><tbody>
+   ${row('Indice de force (résultats)',Math.round(R0.idx[me]),Math.round(R0.idx[op]),cmpB(R0.idx[me],R0.idx[op]))}
+   ${row('Force de l\'effectif (points FRMT)',fmtPts(Math.round(rs1.pts)),fmtPts(Math.round(rs2.pts)),cmpB(rs1.pts,rs2.pts))}
+   ${row('Meilleur classement',rs1.best||'–',rs2.best||'–',rs1.best&&rs2.best?cmpB(rs1.best,rs2.best,false):0)}
+   ${row('Bilan (V-N-D)',`${r1.v}-${r1.n}-${r1.d}`,`${r2.v}-${r2.n}-${r2.d}`,cmpB(r1.v-r1.d,r2.v-r2.d))}
+   ${row('Points de parties marqués / encaissés',`${fmtPts(r1.pp)} / ${fmtPts(r1.pc)}`,`${fmtPts(r2.pp)} / ${fmtPts(r2.pc)}`,cmpB(r1.pp-r1.pc,r2.pp-r2.pc))}
+   ${row('Difficulté du parcours',R0.sos[me]===null?'–':Math.round(R0.sos[me]),R0.sos[op]===null?'–':Math.round(R0.sos[op]),0)}
+   </tbody></table>
+   ${common.length?`<p class="anote" style="margin-top:8px"><b>Adversaires communs</b> : ${common.map(x=>`${h(x.x)} → ${h(me)} ${fmtPts(x.a[0])}-${fmtPts(x.a[1])}, ${h(op)} ${fmtPts(x.b[0])}-${fmtPts(x.b[1])}`).join(' · ')}</p>`:''}
+   ${prev.length?`<p class="anote"><b>Déjà affrontés</b> : ${prev.map(g=>`${h(g.m.t1)} ${fmtPts(g.e.p1)}-${fmtPts(g.e.p2)} ${h(g.m.t2)}`).join(' · ')}</p>`:''}
+   <h4 style="margin-top:12px">Partie par partie : compositions probables</h4>
+   <p class="anote">✓ = joueur déjà désigné. Sinon, les meilleurs joueurs disponibles, le n°1 étant le mieux classé. % = chance de gagner la partie pour ${h(me)}, d'après les points FRMT et les résultats du championnat.</p>
+   <div class="sc-wrap"><table class="anat"><thead><tr><th>Partie</th><th>${h(me)}</th><th>Chance</th><th>${h(op)}</th></tr></thead><tbody>${lines}</tbody></table></div>
+   <p style="margin:6px 0"><b>Points attendus : ${fmtPts(Math.round(exp*2)/2)} sur ${fmtPts(tot)}</b> <small>(il en faut plus de ${fmtPts(tot/2)} pour gagner)</small></p>
+   <h4 style="margin-top:12px">Joueur contre joueur</h4>
+   <p class="anote">Chance de victoire de chacun de vos joueurs disponibles contre chaque joueur adverse${isU12(c)?' (garçons contre garçons, filles contre filles)':''}.</p>
+   <div class="sc-wrap"><table class="mx"><thead><tr><th></th>${Lop.map(b=>`<th>${h(b.n.split(' ')[0])}<br><small>${b.clt||'nc'}${b.av!=='ok'?' '+(b.av==='bl'?'🤕':'❌'):''}</small></th>`).join('')}</tr></thead><tbody>
+   ${Lme.map(a=>`<tr><td class="nm"><b>${h(a.n)}</b> <small>${a.clt||'nc'} · ${a.st.sv}-${a.st.sd}</small></td>${Lop.map(b=>same(a,b)?(p=>`<td><span class="pp" style="${pCol(p)}">${Math.round(100*p)}</span></td>`)(winP(a,b)):'<td>–</td>').join('')}</tr>`).join('')}</tbody></table></div>
+   ${(()=>{const see=(L,t)=>L.map(x=>{const sv=playerServe(c,t,x.i),y=addSt(Object.assign({n:0},sv.s),sv.d);if(!y.n)return '';const I=svInsights(y);
+       return `<li><b>${h(x.n)}</b> (${h(t)}) : service ${pctS(y.hold,y.sg)}, retour ${pctS(y.brk,y.rg)}${I.F.length?' · 💪 '+h(I.F.join(', ')):''}${I.W.length?' · ⚠️ '+h(I.W.join(', ')):''}</li>`;}).join('');
+     const a=see(Lme,me),b=see(Lop,op);return a||b?`<h4 style="margin-top:12px">🎾 Service et retour</h4>${b?`<p class="anote" style="margin-bottom:2px">Adversaires (à exploiter) :</p><ul class="anote" style="margin-top:0">${b}</ul>`:''}${a?`<p class="anote" style="margin-bottom:2px">Vos joueurs :</p><ul class="anote" style="margin-top:0">${a}</ul>`:''}`:'';})()}
+   ${H.length?`<p class="anote" style="margin-top:8px"><b>Face-à-face déjà joués</b> : ${H.map(x=>`${h(x.a.n)} ${x.win?'bat':'perd contre'} ${h(x.b.n)} ${h(fmtScore(x.sc))} (${h(x.m.t1)}–${h(x.m.t2)})`).join(' · ')}</p>`:''}
+   <p class="anote" style="margin-top:8px">Estimations indicatives : elles ne tiennent pas compte de la forme du jour, de la surface ni des blessures non signalées.</p></div>`;}
+/* archive : v1;serveur;noad;tb;stb;one;points de reprise;suite des points (1/2) */
+const encQ=L=>['v1',+L.srv===2?2:1,L.noad?1:0,+L.tb||6,L.stb?1:0,L.one?1:0,+L.base||0,(L.pts||[]).join('')].join(';');
+function decQ(q){const a=String(q||'').split(';');if(a[0]!=='v1'||a.length<8)return null;return {srv:+a[1],noad:a[2]==='1',tb:+a[3]||6,stb:a[4]==='1',one:a[5]==='1',base:+a[6]||0,pts:a[7].split('').map(Number).filter(x=>x===1||x===2)};}
+function serveStats(L){const z=()=>({sp:0,spw:0,rp:0,rpw:0,sg:0,hold:0,rg:0,brk:0,bpf:0,bps:0,bpc:0,bpw:0,dsp:0,dsw:0,drp:0,drw:0,tbp:0,tbw:0});const st={1:z(),2:z()};
+  let sets=[],g=[0,0],p=[0,0],w=0,sg=L.srv===2?2:1;const TB=L.tb||6,nd=L.one?1:2;const sw=()=>[0,1].map(k=>sets.filter(x=>x[k]>x[1-k]).length);
+  const isSTB=()=>{const x=sw();return !!L.one||(!!L.stb&&sets.length===2&&x[0]===1&&x[1]===1);};
+  L.pts.forEach((pt,k)=>{if(w)return;const stb=isSTB(),tb=stb||(g[0]===TB&&g[1]===TB),n=p[0]+p[1];const sv=tb?(n===0?sg:(Math.floor((n+1)/2)%2===0?sg:3-sg)):sg,rt=3-sv,rec=k>=L.base;
+    if(rec){if(tb){st[1].tbp++;st[2].tbp++;st[pt].tbw++;}
+      else{st[sv].sp++;st[rt].rp++;if(pt===sv)st[sv].spw++;else st[rt].rpw++;
+        const ps=p[sv-1],pr=p[rt-1];if(L.noad?pr===3:(pr>=3&&pr>ps)){st[sv].bpf++;st[rt].bpc++;if(pt===sv)st[sv].bps++;else st[rt].bpw++;}
+        if(L.noad&&ps===3&&pr===3){st[sv].dsp++;st[rt].drp++;if(pt===sv)st[sv].dsw++;else st[rt].drw++;}}}
+    const i=pt-1,o=1-i;p[i]++;
+    if(tb){const tg=stb?10:7;if(p[i]>=tg&&p[i]-p[o]>=2){let x;if(stb)x=[p[0],p[1]];else{x=[g[0],g[1]];x[i]++;}sets.push(x);g=[0,0];p=[0,0];sg=3-sg;}}
+    else if(L.noad?p[i]>=4:(p[i]>=4&&p[i]-p[o]>=2)){if(rec){st[sv].sg++;st[rt].rg++;if(pt===sv)st[sv].hold++;else st[rt].brk++;}g[i]++;p=[0,0];sg=3-sg;if(g[i]>=6&&g[i]-g[o]>=2){sets.push([g[0],g[1]]);g=[0,0];}}
+    const x=sw();if(x[0]===nd)w=1;else if(x[1]===nd)w=2;});
+  return st;}
+function addSt(a,b){Object.keys(b).forEach(k=>a[k]=(a[k]||0)+b[k]);return a;}
+/* statistiques de service d'un joueur (simples) et de ses paires (doubles), sur toutes les parties archivées */
+function playerServe(c,t,i){const S1={n:0},D1={n:0};
+  teamMatches(rkey(c,t)).forEach(m=>{const r=S.res[m.id];if(!r||!r.q)return;const sd=m.t1===t?1:2;
+    Object.entries(r.q).forEach(([k,q])=>{const L=decQ(q);if(!L)return;const nn=((r.n||[])[+k]||['',''])[sd-1];if(!String(nn).split('/').includes(String(i)))return;
+      const st=serveStats(L)[sd],dbl=partOf(c,+k,m.id).t==='D';addSt(dbl?D1:S1,st);(dbl?D1:S1).n++;});});
+  return {s:S1,d:D1};}
+const pctS=(a,b)=>b?Math.round(100*a/b)+' %':'–';
+function svInsights(x){const F=[],W=[];if(x.sg>=4){const h=x.hold/x.sg;if(h>=0.75)F.push(`tient ${Math.round(100*h)} % de ses jeux de service`);else if(h<=0.5)W.push(`ne tient que ${Math.round(100*h)} % de ses jeux de service`);}
+  if(x.rg>=4){const b=x.brk/x.rg;if(b>=0.4)F.push(`breake ${Math.round(100*b)} % des jeux de retour`);else if(b<=0.2)W.push(`ne breake que ${Math.round(100*b)} % des jeux de retour`);}
+  if(x.bpf>=3){const v=x.bps/x.bpf;if(v>=0.6)F.push(`sauve ${Math.round(100*v)} % des balles de break`);else if(v<=0.35)W.push(`sauve seulement ${Math.round(100*v)} % des balles de break`);}
+  if(x.bpc>=3){const v=x.bpw/x.bpc;if(v>=0.5)F.push(`convertit ${Math.round(100*v)} % de ses balles de break`);else if(v<=0.25)W.push(`convertit peu ses balles de break (${Math.round(100*v)} %)`);}
+  if(x.dsp+x.drp>=3){const v=(x.dsw+x.drw)/(x.dsp+x.drp);if(v>=0.6)F.push(`gagne ${Math.round(100*v)} % des points décisifs`);else if(v<=0.4)W.push(`perd souvent les points décisifs (${Math.round(100*v)} % gagnés)`);}
+  if(x.tbp>=8){const v=x.tbw/x.tbp;if(v>=0.55)F.push(`solide dans les jeux décisifs`);else if(v<=0.45)W.push(`en difficulté dans les jeux décisifs`);}
+  return {F,W};}
+function serveTable(x,title){if(!x||!x.n)return '';return `<div class="tbl"><div class="sc-wrap"><table class="anat"><thead><tr><th colspan="2">${title} · ${x.n} partie${x.n>1?'s':''} en Live</th></tr></thead><tbody>
+  <tr><td class="w">Jeux de service gagnés</td><td><b>${pctS(x.hold,x.sg)}</b> <small>(${x.hold}/${x.sg})</small></td></tr>
+  <tr><td class="w">Points gagnés sur son service</td><td><b>${pctS(x.spw,x.sp)}</b> <small>(${x.spw}/${x.sp})</small></td></tr>
+  <tr><td class="w">Balles de break sauvées</td><td><b>${pctS(x.bps,x.bpf)}</b> <small>(${x.bps}/${x.bpf})</small></td></tr>
+  <tr><td class="w">Jeux de retour gagnés (breaks)</td><td><b>${pctS(x.brk,x.rg)}</b> <small>(${x.brk}/${x.rg})</small></td></tr>
+  <tr><td class="w">Points gagnés en retour</td><td><b>${pctS(x.rpw,x.rp)}</b> <small>(${x.rpw}/${x.rp})</small></td></tr>
+  <tr><td class="w">Balles de break converties</td><td><b>${pctS(x.bpw,x.bpc)}</b> <small>(${x.bpw}/${x.bpc})</small></td></tr>
+  ${x.dsp+x.drp?`<tr><td class="w">Points décisifs (No Ad) : au service / en retour</td><td><b>${pctS(x.dsw,x.dsp)}</b> / <b>${pctS(x.drw,x.drp)}</b></td></tr>`:''}
+  ${x.tbp?`<tr><td class="w">Points gagnés dans les jeux décisifs</td><td><b>${pctS(x.tbw,x.tbp)}</b> <small>(${x.tbw}/${x.tbp})</small></td></tr>`:''}</tbody></table></div></div>`;}
+function insightHTML(x){const I=svInsights(x);if(!I.F.length&&!I.W.length)return x.n?'<p class="anote">Pas encore assez de jeux pour dégager des points forts ou faibles.</p>':'';
+  return `${I.F.length?`<p style="margin:6px 0">💪 <b>Points forts</b> : ${I.F.join(' · ')}</p>`:''}${I.W.length?`<p style="margin:6px 0">⚠️ <b>À travailler</b> : ${I.W.join(' · ')}</p>`:''}`;}
 function importOfficial(){if(!canAdmin())return;
   /* réglages confirmés par les totaux FRMT : 11-12 ans 3 doubles ; 13-14 et 15-18 garçons 3 simples + 2 doubles à 1,5 pt */
   S.cfg=Object.assign({},S.cfg,{u12d:3,comp:Object.assign({},(S.cfg||{}).comp,{g14:'3-2',g18:'3-2'}),pts:Object.assign({},(S.cfg||{}).pts,{g14:{s:1,d:1.5},g18:{s:1,d:1.5}})});
@@ -1434,6 +1559,8 @@ function renderAna(){const cid=S.anaCat&&CATMAP[S.anaCat]?S.anaCat:(S.cat||CATS[
    ${up.length?`<div class="tbl"><div class="sc-wrap"><table class="anat"><thead><tr><th>Rencontre</th><th>Difficulté attendue</th><th>Favori</th><th>Score estimé</th></tr></thead><tbody>
    ${up.map(x=>`<tr><td class="w"><b>${h(x.m.t1)} – ${h(x.m.t2)}</b><br><small>${h(x.m.tag||'Poule '+(x.m.poule||''))}${x.m.date?' · '+h(DSHORT[x.m.date]):''}</small></td><td>${dCell(x.diff)}</td><td>${h(x.fav)} <small>(${x.conf} %)</small></td><td>${fmtPts(Math.round(2*tot*x.sh)/2)} – ${fmtPts(Math.round(2*tot*(1-x.sh))/2)}</td></tr>`).join('')}</tbody></table></div></div>`:'<div class="empty">Aucune rencontre à venir dans cette catégorie.</div>'}
 
+   ${up.length&&(canAdmin()||(syncReady()&&S.sync.role==='ja'))?(()=>{const sel=up.some(x=>x.m.id===S.prepM)?S.prepM:up[0].m.id,m=up.find(x=>x.m.id===sel).m,side=S.prepSide===m.t2?m.t2:m.t1;
+      return `<h3>🔍 Préparer une rencontre</h3><div class="anah"><select id="prepm">${up.map(x=>`<option value="${x.m.id}"${x.m.id===sel?' selected':''}>${h(x.m.t1)} – ${h(x.m.t2)} · ${x.m.date?h(DSHORT[x.m.date]):h(x.m.tag||'')}</option>`).join('')}</select><select id="prepside"><option${side===m.t1?' selected':''}>${h(m.t1)}</option><option${side===m.t2?' selected':''}>${h(m.t2)}</option></select></div>${prepHTML(m,side)}`;})():''}
    <h3>Rencontres jouées, de la plus disputée à la plus facile</h3>
    <p class="anote">Difficulté = écart de points (60 %) et, quand le détail des parties est saisi, disputé moyen des parties (40 %) : partage des jeux, 3e set, jeux décisifs. ⚡ = surprise : le vainqueur avait un indice nettement plus faible.</p>
    ${played.length?`<div class="tbl"><div class="sc-wrap"><table class="anat"><thead><tr><th>Rencontre</th><th>Score</th><th>Difficulté</th><th>Parties</th></tr></thead><tbody>
@@ -1662,7 +1789,7 @@ function openLive(id,i){const k=id+'#'+i,L0=S.live[k];
   {const pc=partOf(catOfId(id),+i,id);S.live[k]=L0||{pts:[],stb:pc.stb,noad:pc.noad,tb:pc.tb,one:!!pc.one,srv:1,w:''};
    const L1=S.live[k],sc=String(((S.res[id]||{}).p||[])[+i]||'').trim();
    if(!(L1.pts||[]).length&&sc){if(finalScore(id,+i)){toast('Partie déjà terminée : '+sc);return;}const P0=ptsFromScore(sc,L1);
-     if(P0){L1.pts=P0;L1.fromManual=1;toast('Live repris au score saisi : '+fmtScore(sc));}else toast('Score saisi non reconnu : le Live démarre à 0-0');}}
+     if(P0){L1.pts=P0;L1.fromManual=1;L1.base=P0.length;toast('Live repris au score saisi : '+fmtScore(sc));}else toast('Score saisi non reconnu : le Live démarre à 0-0');}}
   fillPlanned(id,+i);S.live[k].own=S.devId;delete S.live[k].stop;LIVE={id,i};ovOpen('live');drawLive();wake();}
 function drawLive(){const {id,i}=LIVE,m=getMatch(id),c=m.cat,L=S.live[id+'#'+i],R=replay(L);
   const lab=partOf(c,i,id).l,r=S.res[id]||{},nm=effN(m,i);
@@ -1679,6 +1806,7 @@ function drawLive(){const {id,i}=LIVE,m=getMatch(id),c=m.cat,L=S.live[id+'#'+i],
    ${LIVE.ro||R.w?'':`<div class="lsrv">${L.pts.length?`🎾 Au service : <b style="color:#fff">${h(who[R.srv-1]||'')}</b> <button class="btn" data-lswap>⇄ Corriger le serveur</button>`:`Qui sert en premier ? <button class="btn${(+L.srv||1)===1?' on':''}" data-lsrv="1">${h(who[0])}</button><button class="btn${+L.srv===2?' on':''}" data-lsrv="2">${h(who[1])}</button>`}</div>`}<div class="lopts"><label><input type="checkbox" data-lopt="stb"${L.stb?' checked':''}> 3e set en super tie-break</label><label><input type="checkbox" data-lopt="noad"${L.noad?' checked':''}> Point décisif à 40-40</label></div>
    <div class="lact"><button class="btn" data-lundo${L.pts.length?'':' disabled'}>↶ Annuler le dernier point</button><button class="btn" data-lreset${L.pts.length?'':' disabled'}>Recommencer la partie</button><button class="btn" data-lstop>⏹ Arrêter le Live</button></div>`}`;}
 function afterLive(){const {id,i}=LIVE,L=S.live[id+'#'+i],R=replay(L);L.ts=Date.now();L.dev=S.sync.device||'';schedLive();const r=S.res[id]=S.res[id]||{p:[],wo:''};r.p=r.p||[];
+  if((L.pts||[]).length>(+L.base||0)){const qs=encQ(L);if((r.q||{})[i]!==qs){r.q=Object.assign({},r.q,{[i]:qs});S.ts[id]=now();markDirty(id,String(i));}}
   if(R.w){const str=scoreStr(R);if(r.p[i]!==str){r.p[i]=str;L.w=str;S.ts[id]=now();markDirty(id,String(i));}}
   else if((L.pts||[]).length){const cur=R.stb?'':(R.tb||R.g[0]+R.g[1]>0?`(${R.g[0]}-${R.g[1]})`:'');const ps=[scoreStr(R),cur].filter(Boolean).join(' ');L.w='';
     if(ps&&r.p[i]!==ps){r.p[i]=ps;S.ts[id]=now();markDirty(id,String(i));}}
@@ -1800,15 +1928,15 @@ function renderPresence(){const box=document.getElementById('presbox');if(!box)r
 function valLock(id){if(!syncReady())return false;const m=getMatch(id);return isValid(id)&&!canJA(m);}
 const roleName=r=>ROLES[r]||'Profil à confirmer';
 const unsent=()=>Object.keys(S.dirty||{}).filter(id=>Object.keys(S.dirty[id]||{}).length);
-function unitV(r,k){r=r||{};if(k==='g')return [String(r.g||'').trim()];if(k==='h')return [String(r.h||'').trim()];if(k==='x')return [String(r.x||'').trim()];if(k==='w')return [String(r.wo||'').trim()];if(k==='v')return [String(r.v||'').trim()];const n=(r.n||[])[k]||[];return [String((r.p||[])[k]||'').trim(),String(n[0]||'').trim(),String(n[1]||'').trim()];}
-function setUnit(r,k,v){if(k==='g'){r.g=v[0]||'';return;}if(k==='h'){r.h=v[0]||'';return;}if(k==='x'){r.x=v[0]||'';return;}if(k==='w'){r.wo=v[0]||'';return;}if(k==='v'){r.v=v[0]||'';return;}r.p=r.p||[];r.n=Array.from(r.n||[],x=>x||['','']);while(r.n.length<=+k)r.n.push(['','']);r.p[+k]=v[0]||'';r.n[+k]=[v[1]||'',v[2]||''];}
+function unitV(r,k){r=r||{};if(k==='g')return [String(r.g||'').trim()];if(k==='h')return [String(r.h||'').trim()];if(k==='x')return [String(r.x||'').trim()];if(k==='w')return [String(r.wo||'').trim()];if(k==='v')return [String(r.v||'').trim()];const n=(r.n||[])[k]||[];return [String((r.p||[])[k]||'').trim(),String(n[0]||'').trim(),String(n[1]||'').trim(),String((r.q||{})[k]||'')];}
+function setUnit(r,k,v){if(k==='g'){r.g=v[0]||'';return;}if(k==='h'){r.h=v[0]||'';return;}if(k==='x'){r.x=v[0]||'';return;}if(k==='w'){r.wo=v[0]||'';return;}if(k==='v'){r.v=v[0]||'';return;}r.p=r.p||[];r.n=Array.from(r.n||[],x=>x||['','']);while(r.n.length<=+k)r.n.push(['','']);r.p[+k]=v[0]||'';r.n[+k]=[v[1]||'',v[2]||''];if(v.length>3&&v[3]!==undefined){r.q=Object.assign({},r.q,{[k]:v[3]||''});}}
 function markDirty(id,k){(S.dirty[id]=S.dirty[id]||{})[k]=1;}
 function markAll(id){const n=Math.max(parts(catOfId(id)).length+1,((S.res[id]||{}).p||[]).length);for(let i=0;i<n;i++)markDirty(id,String(i));markDirty(id,'w');}
 function applyRec(rec,sent){if(Array.isArray(rec)){const d=rec,u={},ts=(+d[3]||0)*1000;(d[1]||[]).forEach((p,i)=>{const n=(d[4]||[])[i]||[];u[i]={v:[p||'',n[0]||'',n[1]||''],ts,by:''};});if(d[2])u.w={v:[d[2]],ts,by:''};rec={id:d[0],u};}
   if(!rec||!rec.id||!getMatch(rec.id))return false;const id=rec.id,r=S.res[id]=S.res[id]||{p:[],wo:'',n:[]};r.pb=r.pb||{};let ch=false,mx=0;
   Object.entries(rec.u||{}).forEach(([k,u])=>{if(!u)return;if(S.resetSec&&(u.ts||0)<S.resetSec*1000)return;mx=Math.max(mx,u.ts||0);
     const cur=unitV(r,k);if(S.dirty[id]&&S.dirty[id][k]){const sv=sent&&sent[id]&&sent[id][k];if(!sv||JSON.stringify(sv)!==JSON.stringify(cur))return;delete S.dirty[id][k];}
-    r.pb[k]=u.ts;(r.by=r.by||{})[k]=u.by||'';(r.bt=r.bt||{})[k]=u.ts||0;const nv=(u.v||[]).map(x=>String(x||''));if(JSON.stringify(cur)!==JSON.stringify(k==='w'||k==='v'||k==='x'||k==='h'||k==='g'?[nv[0]||'']:[nv[0]||'',nv[1]||'',nv[2]||''])){setUnit(r,k,nv);ch=true;}});
+    r.pb[k]=u.ts;(r.by=r.by||{})[k]=u.by||'';(r.bt=r.bt||{})[k]=u.ts||0;const nv=(u.v||[]).map(x=>String(x||''));{const exp=k==='w'||k==='v'||k==='x'||k==='h'||k==='g'?[nv[0]||'']:[nv[0]||'',nv[1]||'',nv[2]||''].concat(nv.length>3?[nv[3]||'']:[]);if(JSON.stringify(cur.slice(0,exp.length))!==JSON.stringify(exp)){setUnit(r,k,nv);ch=true;}}});
   if(mx)S.ts[id]=Math.max(S.ts[id]||0,Math.floor(mx/1000));if(S.dirty[id]&&!Object.keys(S.dirty[id]).length)delete S.dirty[id];return ch;}
 function doneLock(id,k){if(!syncReady()||canJA(getMatch(id)))return false;const r=S.res[id];if(!r||!r.pb||!r.pb[k]||(S.dirty[id]&&S.dirty[id][k]))return false;
   if(k==='w')return !!r.wo;const nx=+k===parts(catOfId(id)).length;const st=partie((r.p||[])[k],nx?1:2,nx);return !!(st&&st.w);}
@@ -1961,7 +2089,7 @@ function syncUI(){const b=document.getElementById('syncst');if(!b)return;if(!syn
   b.title=S.sync.err||'Synchroniser maintenant';}
 document.getElementById('syncst').addEventListener('click',()=>syncNow(true));
 document.getElementById('who').addEventListener('click',()=>{S.tab='data';save();render();window.scrollTo(0,0);});
-const APP_VERSION='2026-09-29 11:00';
+const APP_VERSION='2026-09-29 19:00';
 const DEFAULT_APP_URL='https://mrani-hub.github.io/tennis-jeunes-7q4/';
 const appUrl=()=>{const u=String(S.appUrl||'').trim();if(/^https:\/\//.test(u))return u.replace(/#.*$/,'');return /^https:$/.test(location.protocol)?location.origin+location.pathname:DEFAULT_APP_URL;};
 const inviteLink=code=>appUrl()?appUrl()+'#i='+code:'';
@@ -2236,6 +2364,9 @@ main.addEventListener('change',e=>{const t=e.target;
   if(t.id==='shmine'){S.sh.mine=t.checked;save();renderShare();return;}
   if(t.dataset.gsc){const id=t.dataset.gsc,m=getMatch(id);if(!m||!canJA(m))return;const v=t.value.trim();if(v&&!offScore(v)){toast('Format attendu : 4,5-1,5');return;}
     const r=S.res[id]=S.res[id]||{p:[],wo:'',n:[]};r.g=v?offScore(v).map(fmtPts).join('-'):'';markDirty(id,'g');S.ts[id]=now();save();render();toast(v?'Score officiel enregistré':'Score officiel retiré : calcul par parties');return;}
+  if(t.id==='coachpick'){S.coachTeam=t.value;save();render();return;}
+  if(t.id==='prepm'){S.prepM=t.value;save();render();return;}
+  if(t.id==='prepside'){S.prepSide=t.value;save();render();return;}
   if(t.id==='anacat'){S.anaCat=t.value;save();renderAna();return;}
   if(t.dataset.home){const id=t.dataset.home,m=getMatch(id);if(!m||!canHome(m))return;const r=S.res[id]=S.res[id]||{p:[],wo:'',n:[]};r.h=t.value;markDirty(id,'h');S.ts[id]=now();save();render();toast(t.value?'Équipe visitée : '+(t.value==='1'?m.t1:m.t2):'Équipe visitée effacée');return;}
   if(t.dataset.ptsg){if(!canAdmin())return;const [g,w]=t.dataset.ptsg.split('|');let v=String(t.value).replace(',','.').trim();v=v===''?(w==='d'?2:1):Math.round(Math.max(0,Math.min(10,+v||0))*2)/2;
@@ -2308,7 +2439,7 @@ main.addEventListener('click',e=>{const t=e.target;
     const r=S.res[id]=S.res[id]||{p:[],wo:'',n:[]};r.v=on?(S.sync.device||roleName(S.sync.role)||'Juge-arbitre')+' · '+hhmm(Date.now()):'';markDirty(id,'v');S.ts[id]=now();save();updateCard(id);if(S.tab==='cat')refreshLive();
     toast(on?'Rencontre validée':'Validation annulée');if(S.tab==='arb')renderArb();if(syncReady())syncNow(false);return;}
   if(t.closest('[data-jaall]')){if(!S.sync.codes||!S.sync.codes.ja){toast('Script v5 ou plus requis');return;}showJaAll();return;}
-  const dza=t.closest('[data-dzall]');if(dza){const id=dza.dataset.dzall,m=getMatch(id),[c,tm]=teamOfKey(S.sync.team);orderIdx(m).forEach(i=>{if(i>=parts(c).length)return;const v=compoVal(c,tm,partOf(c,i).slot);const sd=m.t1===tm?0:1;const cur=(((S.res[id]||{}).n||[])[i]||['',''])[sd];if(v&&!cur)coachSet(id,i,'',v);});toast('Numérotation confirmée pour cette rencontre');renderCoach();return;}
+  const dza=t.closest('[data-dzall]');if(dza){const id=dza.dataset.dzall,m=getMatch(id),[c,tm]=teamOfKey(coachKey());orderIdx(m).forEach(i=>{if(i>=parts(c).length)return;const v=compoVal(c,tm,partOf(c,i).slot);const sd=m.t1===tm?0:1;const cur=(((S.res[id]||{}).n||[])[i]||['',''])[sd];if(v&&!cur)coachSet(id,i,'',v);});toast('Numérotation confirmée pour cette rencontre');renderCoach();return;}
   const pinv=t.closest('[data-pinv]');if(pinv){showPlayersInv(pinv.dataset.pinv);return;}
   if(t.closest('[data-pnotif]')){try{Notification.requestPermission().then(()=>renderJoueur());}catch(e){toast('Notifications non disponibles sur ce téléphone');}return;}
   const xa=t.closest('[data-xadd]');if(xa){const id=xa.dataset.xadd,m=getMatch(id);if(!canJA(m)){toast("Réservé au juge-arbitre du lieu et à l'organisateur");return;}
