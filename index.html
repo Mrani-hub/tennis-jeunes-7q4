@@ -569,6 +569,19 @@ body.marqm nav,body.marqm .xadd,body.marqm .mc-f select[data-k="wo"],body.marqm 
 .lserve .btn{min-height:44px;font-size:14px}
 .lserve .btn.flt{background:#e38b1c;border-color:#e38b1c;color:#fff}
 .b2{display:inline-block;margin-left:6px;background:#e38b1c;color:#fff;border-radius:5px;padding:0 5px;font:700 11px var(--fb);vertical-align:middle}
+.wosel{margin-top:6px;padding:5px 8px;border:1px dashed var(--line);border-radius:7px;background:transparent;color:var(--muted);font-size:13px!important;max-width:100%}
+body.marqm .wosel{display:inline-block}
+.pairw select{display:none!important}
+.pairw{display:block!important}
+.pairb{width:100%;min-height:44px;text-align:left;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);font:500 14px var(--fb);color:var(--ink);cursor:pointer}
+.pairb:disabled{opacity:.6;cursor:default}
+.pairb .ph{color:var(--muted)}
+.pl{display:grid;gap:6px;margin:12px 0;max-height:60vh;overflow:auto}
+.pl label{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.18);border-radius:9px;padding:10px 12px;color:#fff;font-size:15px}
+.pl label.on{background:rgba(217,232,74,.18);border-color:var(--ball)}
+.pl label.off{opacity:.45}
+.pl input{width:20px;height:20px}
+.pl small{color:#9fb0c2;margin-left:auto}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -872,9 +885,20 @@ function nameToIdx(c,t,name){name=String(name||'').trim();if(!name||/^\d+$/.test
   if(k<0){const lim=Math.max(L.length,nbJ(c,t));k=0;while(k<lim&&String(L[k]||'').trim())k++;L[k]=name;}
   if(k+1>nbJ(c,t))S.nbj[rkey(c,t)]=k+1;return String(k+1);}
 const legacyToIdx=(c,t,v)=>{const a=String(v||'').split('/').map(x=>x.trim());if(a.every(x=>/^\d*$/.test(x)))return String(v||'');return a.map(x=>nameToIdx(c,t,x)).join('/');};
-function pSelect(m,t,val,k,lab){const c=m.cat,n=Math.max(nbJ(c,t),parseInt(val,10)||0);let o=`<option value="">${h(lab)}</option>`;
+/* 11-12 ans : garçons seuls sur les parties garçons, filles seules sur les parties filles */
+function sexOf(c,i,id){if(!isU12(c)||i===undefined)return '';const pc=partOf(c,+i,id);if(pc.t==='S'&&/^\d\d[GF]/.test(pc.slot||''))return pc.slot.charAt(2);return /garçons/i.test(pc.l||'')?'G':/filles/i.test(pc.l||'')?'F':'';}
+const sexOk=(c,t,i,g)=>{if(!g)return true;const tg=String(ptag(c,t,i)||'');return !tg||tg.endsWith(g);};
+function pairLab(c,t,a){const x=(a||[]).filter(Boolean);return x.length?`👥 ${h(x.map(i=>pnameC(c,t,+i)).join(' / '))} <span class="ph">✎</span>`:'<span class="ph">👥 Choisir la paire (2 joueurs)</span>';}
+function openPair(btn){const [q1,q2,title]=JSON.parse(btn.dataset.pair);const s1=document.querySelector(q1),s2=document.querySelector(q2);if(!s1||!s2)return;if(s1.disabled||btn.disabled){toast('Partie verrouillée');return;}
+  const opts=[...s1.options].filter(o=>o.value);let sel=[s1.value,s2.value].filter(Boolean);ovOpen('pair');
+  const draw=()=>{OV.innerHTML=`<div class="ov-h"><div><b style="color:#fff;font-size:15px">👥 ${h(title)}</b><br>Touchez deux joueurs, puis Valider.</div><button class="ov-x" data-ov="close">Fermer</button></div>
+    <div class="pl">${opts.map(o=>{const on=sel.includes(o.value),dis=o.disabled&&!on;return `<label class="${on?'on':''}${dis?' off':''}"><input type="checkbox" data-pp="${o.value}"${on?' checked':''}${dis?' disabled':''}> <span>${h(o.textContent.split(' · ')[0])}</span><small>${h(o.textContent.split(' · ').slice(1).join(' · '))}</small></label>`;}).join('')}</div>
+    <div class="lact"><button class="btn pri" data-ppok${sel.length===2||sel.length===0?'':' disabled'}>Valider${sel.length===2?'':sel.length===0?' (aucun joueur)':' (choisissez-en un 2e)'}</button><button class="btn" data-ppclr>Effacer</button></div>`;};
+  PAIR={s1,s2,get sel(){return sel;},set sel(v){sel=v;},draw};draw();}
+let PAIR=null;
+function pSelect(m,t,val,k,lab,pi){const c=m.cat,n=Math.max(nbJ(c,t),parseInt(val,10)||0),g=sexOf(c,pi,m.id);let o=`<option value="">${h(lab)}</option>`;
   const opt=i=>`<option value="${i}"${String(val)===String(i)?' selected':''}>${h(pname(c,t,i))}${ptag(c,t,i)?' · '+h(tagLabel(ptag(c,t,i))):''}${cltOf(c,t,i)?' · clt '+cltOf(c,t,i):''}</option>`;
-  const idx=Array.from({length:n},(_,i)=>i+1);
+  const idx=Array.from({length:n},(_,i)=>i+1).filter(i=>sexOk(c,t,i,g)||String(val)===String(i));
   if(idx.some(i=>ptag(c,t,i))){const groups=[...tagOpts(c),''];groups.forEach(g=>{const ii=idx.filter(i=>(ptag(c,t,i)||'')===g||(!g&&!tagOpts(c).includes(ptag(c,t,i))));if(ii.length)o+=`<optgroup label="${g?h(tagLabel(g,true)):'Sans précision'}">${ii.map(opt).join('')}</optgroup>`;});}
   else idx.forEach(i=>o+=opt(i));
   return `<select data-id="${m.id}" data-k="${k}" aria-label="${h(lab)}">${o}</select>`;}
@@ -928,7 +952,7 @@ function setDone(a,b,i,pc){const M=Math.max(a,b),n=Math.min(a,b),tb=(pc&&pc.tb)|
 function normScore(str,pc){let raw=String(str||'').replace(/(^|\s)\(\s*(\d{1,2})\s*[-\/:]\s*(\d{1,2})\s*\)\s*$/,'$1$2-$3').replace(/(\d)\s+\((\d{1,2}(?:\s*[-\/:]\s*\d{1,2})?)\)/g,'$1($2)').trim();if(!raw)return '';
   const t=raw.split(/\s+/),m=t[t.length-1].match(/^(\d{1,2})[-\/:](\d{1,2})$/);if(!m)return raw;
   if(setDone(+m[1],+m[2],t.length-1,pc))return raw;t[t.length-1]='('+(+m[1])+'-'+(+m[2])+')';return t.join(' ');}
-const fmtScore=sc=>String(sc||'').replace(/\s\((\d{1,2})-(\d{1,2})\)$/,' · $1-$2 en cours').replace(/^\((\d{1,2})-(\d{1,2})\)$/,'$1-$2 en cours');
+const fmtScore=sc=>String(sc||'').replace(/\s*\(w\.o\.\)/i,' · forfait (W.O.)').replace(/\s*\(ab\.\)/i,' · abandon').replace(/\s\((\d{1,2})-(\d{1,2})\)$/,' · $1-$2 en cours').replace(/^\((\d{1,2})-(\d{1,2})\)$/,'$1-$2 en cours');
 function partie(str,need,isX){const s=parseSets(str);if(!s.length)return null;let s1=0,s2=0,j1=0,j2=0;
   s.forEach(([a,b],i)=>{if(a>b)s1++;else if(b>a)s2++;
     if((isX||i>=2)&&Math.max(a,b)>=10){if(a>b)j1++;else if(b>a)j2++;} else {j1+=a;j2+=b;}});
@@ -1059,7 +1083,7 @@ function roInner(m){const r=S.res[m.id]||{};if(r.wo)return '<div>Victoire par fo
   const L=orderIdx(m).map(i=>{const lab=P[i],x=parts(m.cat).length;if(!String((r.p||[])[i]||'').trim()&&!isActive(S.live[m.id+'#'+i]))return '';
     const sc=String((r.p||[])[i]||'').trim(),nn=effN(m,i),a=pnamesC(m.cat,m.t1,nn[0]),b=pnamesC(m.cat,m.t2,nn[1]);
     const live=isActive(S.live[m.id+'#'+i]),st=sc?partie(sc,i===x?1:2,i===x):null;
-    const res=live?`<b style="color:#e0493a">● Live ${h(liveTxt(S.live[m.id+'#'+i],replay(S.live[m.id+'#'+i])))}${(r=>r.srv?' · 🎾 '+h(srvName(m,i,r)):'')(replay(S.live[m.id+'#'+i]))}</b>`:sc?(st&&st.w?`<b>${h(sc)}</b>`:`<b style="color:#e0493a">● ${h(fmtScore(sc))}</b>`):'<span style="opacity:.7">à jouer</span>';
+    const res=live?`<b style="color:#e0493a">● Live ${h(liveTxt(S.live[m.id+'#'+i],replay(S.live[m.id+'#'+i])))}${(r=>r.srv?' · 🎾 '+h(srvName(m,i,r)):'')(replay(S.live[m.id+'#'+i]))}</b>`:sc?(st&&st.w?`<b>${h(fmtScore(sc))}</b>`:`<b style="color:#e0493a">● ${h(fmtScore(sc))}</b>`):'<span style="opacity:.7">à jouer</span>';
     const w1=st&&st.w===1,w2=st&&st.w===2;
     return `<div>${h(lab)} : ${w1?'<b>':''}${h(a||'…')}${w1?'</b>':''} – ${w2?'<b>':''}${h(b||'…')}${w2?'</b>':''} · ${res}</div>`;}).join('');return L||'<span>Résultat pas encore saisi.</span>';}
 const homeOf=id=>String((S.res[id]||{}).h||'');
@@ -1077,10 +1101,11 @@ function card(m,tag,when){const r=S.res[m.id]||{p:[],wo:''};const P=PLid(m.id);
   ${canJA(m)?`<label class="hrow">📋 Score officiel (points)<input data-gsc="${m.id}" value="${h(String(r.g||'').replace('.',','))}" placeholder="ex. 4,5-1,5 (vide = calcul par parties)" inputmode="decimal" autocomplete="off"></label>`:''}
   ${canHome(m)?`<label class="hrow">🏠 Équipe visitée<select data-home="${m.id}"><option value="">— non précisé —</option><option value="1"${homeOf(m.id)==='1'?' selected':''}>${h(m.t1)} (visitée) · ${h(m.t2)} (visiteuse)</option><option value="2"${homeOf(m.id)==='2'?' selected':''}>${h(m.t2)} (visitée) · ${h(m.t1)} (visiteuse)</option></select></label>`:''}
   ${orderIdx(m).map(i=>{const p=P[i];const nm=effN(m,i),pl=planned(m,i);const dbl=i>=XB?(extrasOf(m.id)[i-XB]||{}).t==='D':/double/i.test(p);
-   const side=(t,v,sd)=>{if(!dbl)return pSelect(m,t,v||'',`n${i}${sd}`,'Joueur '+t);const a=String(v||'').split('/');
-     return `<div class="dsel">${pSelect(m,t,a[0]||'',`n${i}${sd}0`,'Joueur 1 '+t)}${pSelect(m,t,a[1]||'',`n${i}${sd}1`,'Joueur 2 '+t)}</div>`;};
+   const side=(t,v,sd)=>{if(!dbl)return pSelect(m,t,v||'',`n${i}${sd}`,'Joueur '+t,i);const a=String(v||'').split('/');
+     return `<div class="dsel pairw">${pSelect(m,t,a[0]||'',`n${i}${sd}0`,'Joueur 1 '+t,i)}${pSelect(m,t,a[1]||'',`n${i}${sd}1`,'Joueur 2 '+t,i)}<button type="button" class="pairb" data-pair="${h(JSON.stringify([`select[data-id="${m.id}"][data-k="n${i}${sd}0"]`,`select[data-id="${m.id}"][data-k="n${i}${sd}1"]`,t+' · '+p]))}">${pairLab(m.cat,t,a)}</button></div>`;};
    return `<div class="pb" data-pi="${i}"${i===parts(m.cat).length?' data-x hidden':''}><div class="pbh">${p}${pl?'<span class="prevu">joueurs prévus</span>':''}</div><span class="lock-note" data-lk hidden>Partie en Live : saisie verrouillée pendant le comptage</span><div class="pn">${side(m.t1,nm[0],'a')}${side(m.t2,nm[1],'b')}</div>
-    <div class="scrow"><input class="scin" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-id="${m.id}" data-k="${i}" value="${h((r.p||[])[i]||'')}" placeholder="Score : 6-4 3-2… (partiel accepté)" aria-label="Score ${p}"><button class="btn lv" data-live="${m.id}|${i}">▶ Live</button></div><span class="pr" data-pr="${i}"></span></div>`;}).join('')}
+    <div class="scrow"><input class="scin" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-id="${m.id}" data-k="${i}" value="${h((r.p||[])[i]||'')}" placeholder="Score : 6-4 3-2… (partiel accepté)" aria-label="Score ${p}"><button class="btn lv" data-live="${m.id}|${i}">▶ Live</button></div>
+    <select class="wosel" data-wo="${m.id}|${i}" aria-label="Forfait ou abandon ${p}"><option value="">Forfait / abandon…</option><option value="f2">Forfait de ${h(m.t1)} → partie à ${h(m.t2)}</option><option value="f1">Forfait de ${h(m.t2)} → partie à ${h(m.t1)}</option><option value="a2">Abandon de ${h(m.t1)} (score en cours complété)</option><option value="a1">Abandon de ${h(m.t2)} (score en cours complété)</option></select><span class="pr" data-pr="${i}"></span></div>`;}).join('')}
   ${syncReady()&&S.sync.role==='admin'?`<div class="xadd"><span>📲 Confier la saisie de cette rencontre</span><button class="btn sm" data-marq="${m.id}">Créer un accès marqueur</button></div>`:''}
   ${canJA(m)?`<div class="xadd"><span>➕ Partie supplémentaire</span><select data-xt="${m.id}"><option value="S">Simple</option><option value="D">Double</option></select><input data-xl="${m.id}" placeholder="Nom (ex. Double garçons n°2)" autocomplete="off"><button class="btn sm" data-xadd="${m.id}">Ajouter</button>${extrasOf(m.id).map((x,j)=>String((r.p||[])[XB+j]||'').trim()?'':`<button class="btn sm danger" data-xdel="${m.id}|${j}">✕ ${h(x.l)}</button>`).join('')}</div>`:''}
   <div class="mc-f"><select data-id="${m.id}" data-k="wo" aria-label="Forfait">
@@ -1098,7 +1123,7 @@ function updateCard(id){const el=main.querySelector(`[data-card="${id}"]`);if(!e
   el.querySelector('[data-s="2"]').classList.toggle('win',e.done&&e.w===2);
   el.querySelectorAll('[data-pr]').forEach(sp=>{const nx=+sp.dataset.pr===parts(m.cat).length,st=e.wo?null:partie((r.p||[])[+sp.dataset.pr],nx?1:2,nx);
     const nv=((r.n||[])[+sp.dataset.pr]||[])[st&&st.w?st.w-1:0];const tm=st&&st.w===1?m.t1:m.t2;const nm=nv?pnamesC(m.cat,tm,nv):'';
-    sp.className='pr'+(st&&!st.w?' pend':'');const rawS=String((r.p||[])[+sp.dataset.pr]||'');sp.textContent=st?(st.w?`Partie gagnée par ${nm?nm+' ('+tm+')':tm}, ${st.s1}-${st.s2} en sets`:`En cours : ${fmtScore(rawS)} · publié en Live`):(/^\(/.test(rawS)?`En cours : ${fmtScore(rawS)} · publié en Live`:'');
+    sp.className='pr'+(st&&!st.w?' pend':'');const rawS=String((r.p||[])[+sp.dataset.pr]||'');sp.textContent=st?(st.w?`Partie gagnée par ${nm?nm+' ('+tm+')':tm}, ${/\(w\.o\.\)/i.test(rawS)?'par forfait adverse':/\(ab\.\)/i.test(rawS)?'sur abandon adverse ('+st.s1+'-'+st.s2+' en sets)':st.s1+'-'+st.s2+' en sets'}`:`En cours : ${fmtScore(rawS)} · publié en Live`):(/^\(/.test(rawS)?`En cours : ${fmtScore(rawS)} · publié en Live`:'');
     const L=S.live[id+'#'+sp.dataset.pr];if(L&&L.pts.length&&!e.wo){const Rr=replay(L);if(!Rr.w){sp.className='pr pend';sp.textContent='● Live : '+liveTxt(L,Rr);}}});
   applyLock(el,id);
   const rp=el.querySelector('[data-rop]');if(rp)rp.innerHTML=roInner(m);
@@ -1285,8 +1310,8 @@ function teamMatches(k){const [c,t]=teamOfKey(k);if(!c)return [];const ms=c.matc
   return ms.sort((a,b)=>(DATES.indexOf(a.date)+1||99)-(DATES.indexOf(b.date)+1||99)||timeKey(a,a.lieu).localeCompare(timeKey(b,b.lieu)));}
 const availOf=(k,i)=>(((S.avail||{})[k])||{})[i]||'ok';
 const AV={ok:'✅ disponible',no:'❌ indisponible',bl:'🤕 blessé(e)'};
-function playerOpts(k,val,dis){const [c,t]=teamOfKey(k),n=nbJ(c,t),C=(S.rosterClt||{})[k]||[];
-  return '<option value="">—</option>'+Array.from({length:n},(_,i)=>i+1).map(i=>{const a=availOf(k,i),nm=pname(c,t,i),tg=ptag(c,t,i);
+function playerOpts(k,val,g){const [c,t]=teamOfKey(k),n=nbJ(c,t),C=(S.rosterClt||{})[k]||[];
+  return '<option value="">—</option>'+Array.from({length:n},(_,i)=>i+1).filter(i=>sexOk(c,t,i,g)||String(val)===String(i)).map(i=>{const a=availOf(k,i),nm=pname(c,t,i),tg=ptag(c,t,i);
     return `<option value="${i}"${String(val)===String(i)?' selected':''}${a!=='ok'&&String(val)!==String(i)?' disabled':''}>${a!=='ok'?(a==='bl'?'🤕 ':'❌ '):''}${h(nm)}${tg?' · '+h(tagLabel(tg)):''}${C[i-1]?' · clt '+h(C[i-1]):''}</option>`;}).join('');}
 function coachKey(){if(syncReady()&&S.sync.role==='coach')return S.sync.team;const all=allTeamKeys();if(S.coachTeam&&all.includes(S.coachTeam))return S.coachTeam;
   const mine=all.find(k=>S.myClub&&base(teamOfKey(k)[1])===S.myClub);return mine||all[0];}
@@ -1317,8 +1342,8 @@ function renderCoach(){const k=coachKey(),[c,t]=teamOfKey(k);if(!c){main.innerHT
 function coachCard(m,k){const [c,t]=teamOfKey(k),sd=m.t1===t?0:1,opp=sd?m.t1:m.t2,r=S.res[m.id]||{},P=PLid(m.id),x0=parts(c).length,e=ev(m.id);
   const rowsH=orderIdx(m).filter(i=>i!==x0||e.x).map(i=>{const pc=partOf(c,i,m.id),st=String((r.p||[])[i]||'').trim(),live=isActive(S.live[m.id+'#'+i]),lock=!!st||live;
     const cur=((r.n||[])[i]||['',''])[sd]||'',pl=!cur?compoVal(c,t,pc.slot):'';const v=cur||pl;
-    const sel=pc.t==='D'||pc.one?(()=>{const a=String(v).split('/');return `<span class="dd"><select data-dz="${m.id}|${i}|0"${lock?' disabled':''}>${playerOpts(k,a[0]||'')}</select><select data-dz="${m.id}|${i}|1"${lock?' disabled':''}>${playerOpts(k,a[1]||'')}</select></span>`;})()
-      :`<select data-dz="${m.id}|${i}|"${lock?' disabled':''}>${playerOpts(k,v)}</select>`;
+    const sel=pc.t==='D'||pc.one?(()=>{const a=String(v).split('/');return `<span class="dd pairw"><select data-dz="${m.id}|${i}|0"${lock?' disabled':''}>${playerOpts(k,a[0]||'',sexOf(c,i,m.id))}</select><select data-dz="${m.id}|${i}|1"${lock?' disabled':''}>${playerOpts(k,a[1]||'',sexOf(c,i,m.id))}</select><button type="button" class="pairb"${lock?' disabled':''} data-pair="${h(JSON.stringify([`select[data-dz="${m.id}|${i}|0"]`,`select[data-dz="${m.id}|${i}|1"]`,t+' · '+P[i]]))}">${pairLab(c,t,a)}</button></span>`;})()
+      :`<select data-dz="${m.id}|${i}|"${lock?' disabled':''}>${playerOpts(k,v,sexOf(c,i,m.id))}</select>`;
     return `<div class="dzr"><span>${h(P[i])}${!cur&&pl?' <span class="prevu">numérotation</span>':''}${lock?`<br><span class="st">${live?'● Live':h(fmtScore(st))}</span>`:''}</span>${sel}</div>`;}).join('');
   const pr=predict(teamRatings(c),t,opp);
   return `<div class="dzc"><h4><span>${h(t)} – ${h(opp)}<br><small>Difficulté attendue : ${Math.round(pr.diff)}/100 · ${diffLab(pr.diff)[0]} · favori ${h(pr.fav)} (${pr.conf} %)</small></span><small>${m.date?h(DLONG[m.date])+' · '+h(whenTxt(m,m.lieu))+' · 📍 '+h(venueName(m.lieu)):h(m.tag||'Phase finale')}</small></h4>${rowsH}
@@ -1537,7 +1562,15 @@ const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 function diffLab(v){return v>=80?['🔥 Très disputée','#e0493a']:v>=60?['🟠 Disputée','#e38b1c']:v>=35?['🟡 Nette','#c9a400']:['⚪ Facile','#8a99a8'];}
 function dCell(v){const [l,col]=diffLab(v);return `<span class="dbar"><i style="width:${Math.round(v)}%;background:${col}"></i></span><span class="dl" style="color:${col}">${Math.round(v)} · ${l}</span>`;}
 /* Disputé d'une partie : partage des jeux, 3e set, jeux décisifs, super tie-break */
-function partieDiff(sc,pc){const sets=parseSets(sc);if(!sets.length)return null;const st=partie(sc,pc&&pc.one?1:2,pc&&pc.one);if(!st||!st.w)return null;
+const isWO=sc=>/\((w\.o\.|ab\.)\)/i.test(String(sc||''));
+function woScore(sc,pc,win,kind){const nd=pc&&pc.one?1:2,TB=(pc&&pc.tb)||6,stbAt=i=>pc&&(pc.one||(pc.stb&&i===2));
+  const W=win===1?0:1,flip=([a,b])=>win===1?[a,b]:[b,a];let sets=[],cur=null;
+  if(kind==='a'){String(normScore(sc,pc)||'').trim().split(/\s+/).filter(Boolean).forEach(t=>{let m=t.match(/^\((\d{1,2})-(\d{1,2})\)$/);if(m){cur=[+m[1],+m[2]];return;}m=t.match(/^(\d{1,2})-(\d{1,2})(\(\d{1,2}(?:-\d{1,2})?\))?$/);if(m)sets.push([+m[1],+m[2],m[3]||'']);});}
+  const won=k=>sets.filter(x=>(k===0?x[0]>x[1]:x[1]>x[0])).length;
+  if(cur){const i=sets.length,g=[cur[0],cur[1]],L=g[1-W];let a;if(stbAt(i)){a=Math.max(10,L+2);}else if(L>=TB){a=TB+1;}else if(L===TB-1){a=TB+1;}else a=Math.max(6,L+2>6?L+2:6);g[W]=a;sets.push([g[0],g[1],'']);}
+  while(won(W)<nd){const i=sets.length,z=stbAt(i)?[10,0]:[6,0];sets.push(W===0?[z[0],z[1],'']:[z[1],z[0],'']);}
+  return sets.map(x=>x[0]+'-'+x[1]+x[2]).join(' ')+(kind==='f'?' (w.o.)':' (ab.)');}
+function partieDiff(sc,pc){if(isWO(sc))return null;const sets=parseSets(sc);if(!sets.length)return null;const st=partie(sc,pc&&pc.one?1:2,pc&&pc.one);if(!st||!st.w)return null;
   let a=0,b=0,tb=0;sets.forEach(([x,y],i)=>{const stb=(pc&&(pc.one||(pc.stb&&i===2)))||Math.max(x,y)>=10;if(stb)return;a+=x;b+=y;const M=Math.max(x,y),n=Math.min(x,y);if((M===7&&n===6)||(M===6&&n===5&&(pc&&pc.tb)===5))tb++;});
   let v=a+b?2*Math.min(a,b)/(a+b):0.5;if(sets.length>=3)v+=0.2;v+=0.08*tb;if(sets.some(([x,y],i)=>Math.max(x,y)>=10))v+=0.05;return {v:100*clamp(v,0,1),sets:sets.length,tb,w:st.w};}
 /* Indice de force des équipes : écart de points par rencontre, ajusté à la force des adversaires (méthode itérative) */
@@ -1912,6 +1945,9 @@ OV.addEventListener('click',e=>{const t=e.target;
     if(t.closest('[data-lreset]')){if(confirm('Effacer tous les points de cette partie ?')){L.pts=[];L.sv=[];L.flt=false;afterLive();}return;}}
   if(OVMODE==='qr'){const q=t.closest('[data-qr]');if(q&&QRC)QRC[q.dataset.qr]();}
   if(OVMODE==='marq'){const b=t.closest('[data-mq]');if(!b)return;const id=(OV.querySelector('.ov-h b')&&S._mqid)||'';sendMarq(S._mqid,b.dataset.mq);return;}
+  if(OVMODE==='pair'&&PAIR){const cb=t.closest('[data-pp]');if(cb){const v=cb.dataset.pp;let s0=PAIR.sel.slice();if(s0.includes(v))s0=s0.filter(x=>x!==v);else{if(s0.length>=2)s0.shift();s0.push(v);}PAIR.sel=s0;PAIR.draw();return;}
+    if(t.closest('[data-ppclr]')){PAIR.sel=[];PAIR.draw();return;}
+    if(t.closest('[data-ppok]')){const [a,b]=PAIR.sel;const {s1,s2}=PAIR;ovClose();s1.value=a||'';s1.dispatchEvent(new Event('change',{bubbles:true}));const s2b=document.querySelector(`select[${s2.hasAttribute('data-dz')?'data-dz="'+s2.dataset.dz+'"':'data-id="'+s2.dataset.id+'"][data-k="'+s2.dataset.k+'"'}]`)||s2;s2b.value=b||'';s2b.dispatchEvent(new Event('change',{bubbles:true}));PAIR=null;render();return;}}
   if(OVMODE==='pinv'){const b=t.closest('[data-pj]');if(!b)return;const [k1,k2,i,how]=b.dataset.pj.split('|');const k=k1+'|'+k2;const inv=syncInvite('joueur',k,+i);if(!inv){toast('Lien indisponible');return;}
     if(how==='link'){copyText(inv.link||inv.code);return;}if(how==='qr'){const back=k;showQR('',inv.code);return;}doShare(inv.text,navigator.share?'native':'wa');return;}
   if(OVMODE==='jaall'){const b=t.closest('[data-jx]');if(!b)return;const [a,v]=b.dataset.jx.split('|');
@@ -2120,7 +2156,7 @@ function syncUI(){const b=document.getElementById('syncst');if(!b)return;if(!syn
   b.title=S.sync.err||'Synchroniser maintenant';}
 document.getElementById('syncst').addEventListener('click',()=>syncNow(true));
 document.getElementById('who').addEventListener('click',()=>{S.tab='data';save();render();window.scrollTo(0,0);});
-const APP_VERSION='2026-09-30 14:00';
+const APP_VERSION='2026-09-30 18:00';
 const DEFAULT_APP_URL='https://mrani-hub.github.io/tennis-jeunes-7q4/';
 const appUrl=()=>{const u=String(S.appUrl||'').trim();if(/^https:\/\//.test(u))return u.replace(/#.*$/,'');return /^https:$/.test(location.protocol)?location.origin+location.pathname:DEFAULT_APP_URL;};
 const inviteLink=code=>appUrl()?appUrl()+'#i='+code:'';
@@ -2399,6 +2435,11 @@ main.addEventListener('change',e=>{const t=e.target;
   if(t.id==='prepm'){S.prepM=t.value;save();render();return;}
   if(t.id==='prepside'){S.prepSide=t.value;save();render();return;}
   if(t.id==='anacat'){S.anaCat=t.value;save();renderAna();return;}
+  if(t.dataset.wo){const [id,k]=t.dataset.wo.split('|'),v=t.value;t.value='';if(!v)return;const m=getMatch(id),inp=main.querySelector(`input.scin[data-id="${id}"][data-k="${k}"]`);
+    if(!m||!canEditM(m)||(inp&&inp.disabled)){toast('Partie verrouillée');return;}const pc=partOf(catOfId(id),+k,id),win=+v[1],kind=v[0],r=S.res[id]=S.res[id]||{p:[],wo:'',n:[]};r.p=r.p||[];
+    const cur=String(r.p[+k]||'').trim();if(kind==='a'&&!cur&&!confirm('Aucun score en cours : l\'abandon sera enregistré comme 6-0 6-0. Continuer ?'))return;
+    const sc=woScore(cur,pc,win,kind),who=win===1?m.t2:m.t1;if(!confirm(`${kind==='f'?'Forfait':'Abandon'} de ${who} : la partie sera enregistrée ${sc}. Confirmer ?`))return;
+    r.p[+k]=sc;S.ts[id]=now();markDirty(id,String(k));stopLiveIfFinal(id,+k);save();render();toast(`${kind==='f'?'Forfait':'Abandon'} enregistré : ${sc}`);return;}
   if(t.dataset.home){const id=t.dataset.home,m=getMatch(id);if(!m||!canHome(m))return;const r=S.res[id]=S.res[id]||{p:[],wo:'',n:[]};r.h=t.value;markDirty(id,'h');S.ts[id]=now();save();render();toast(t.value?'Équipe visitée : '+(t.value==='1'?m.t1:m.t2):'Équipe visitée effacée');return;}
   if(t.dataset.ptsg){if(!canAdmin())return;const [g,w]=t.dataset.ptsg.split('|');let v=String(t.value).replace(',','.').trim();v=v===''?(w==='d'?2:1):Math.round(Math.max(0,Math.min(10,+v||0))*2)/2;
     const cur=Object.assign({},(S.cfg||{}).pts);cur[g]=Object.assign({},cur[g],{[w]:v});S.cfg=Object.assign({},S.cfg,{pts:cur});
@@ -2480,6 +2521,7 @@ main.addEventListener('click',e=>{const t=e.target;
     if(!confirm('Retirer cette partie supplémentaire ?'))return;const L=extrasOf(id);L.splice(+j,1);
     for(let q=+j;q<L.length+1;q++){r.p=r.p||[];r.n=r.n||[];r.p[XB+q]=r.p[XB+q+1]||'';r.n[XB+q]=r.n[XB+q+1]||['',''];if(q<L.length+1)markDirty(id,String(XB+q));}
     r.x=L.length?JSON.stringify(L):'';markDirty(id,'x');S.ts[id]=now();save();render();toast('Partie retirée');return;}
+  const pb0=t.closest('[data-pair]');if(pb0){openPair(pb0);return;}
   const mq0=t.closest('[data-marq]');if(mq0){showMarqInv(mq0.dataset.marq);return;}
   if(t.closest('[data-rankimp]')){importRank();return;}
   if(t.closest('[data-offimp]')){if(confirm('Importer les 78 résultats officiels FRMT des 25, 26 et 27 septembre ?'))importOfficial();return;}
