@@ -582,6 +582,18 @@ body.marqm .wosel{display:inline-block}
 .pl label.off{opacity:.45}
 .pl input{width:20px;height:20px}
 .pl small{color:#9fb0c2;margin-left:auto}
+.padb{min-width:46px;font-size:18px}
+.padh{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 6px}
+.padh div{background:rgba(255,255,255,.07);border-radius:9px;padding:8px;text-align:center;color:#fff}
+.padh small{display:block;color:#9fb0c2}
+.padcur{text-align:center;font:700 22px var(--fd);color:var(--ball);min-height:30px;margin:6px 0}
+.padg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.padg h5{margin:0 0 4px;color:#c9d3de;font:600 12.5px var(--fb);text-align:center}
+.padk{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.padk button{min-height:48px;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;font:700 17px var(--fb);cursor:pointer}
+.padk button:active{background:var(--ball);color:#10233a}
+.padtb{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:8px 0}
+.padtb button{min-width:44px;min-height:44px;border-radius:9px;border:1px solid var(--ball);background:transparent;color:#fff;font:700 16px var(--fb)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -896,6 +908,26 @@ function openPair(btn){const [q1,q2,title]=JSON.parse(btn.dataset.pair);const s1
     <div class="lact"><button class="btn pri" data-ppok${sel.length===2||sel.length===0?'':' disabled'}>Valider${sel.length===2?'':sel.length===0?' (aucun joueur)':' (choisissez-en un 2e)'}</button><button class="btn" data-ppclr>Effacer</button></div>`;};
   PAIR={s1,s2,get sel(){return sel;},set sel(v){sel=v;},draw};draw();}
 let PAIR=null;
+let PAD=null;
+function openPad(id,i){const m=getMatch(id),c=catOfId(id),pc=partOf(c,+i,id),inp=main.querySelector(`input.scin[data-id="${id}"][data-k="${i}"]`);if(!m||!inp)return;
+  if(inp.disabled){toast('Partie verrouillée');return;}const fl=flipOf(id),nn=effN(m,+i);
+  const L={t:fl?m.t2:m.t1,n:pnamesC(c,fl?m.t2:m.t1,nn[fl?1:0])},Rt={t:fl?m.t1:m.t2,n:pnamesC(c,fl?m.t1:m.t2,nn[fl?0:1])};
+  const sets=[];String(inp.value||'').trim().split(/\s+/).filter(Boolean).forEach(t=>{const x=t.match(/^(\d{1,2})-(\d{1,2})(?:\((\d{1,2})\))?$/);if(x)sets.push([+x[1],+x[2],x[3]===undefined?null:+x[3]]);});
+  PAD={id,i,pc,L,R:Rt,sets,tbw:false,inp};ovOpen('pad');drawPad();}
+function padDone(){const P=PAD,nd=P.pc.one?1:2,a=P.sets.filter(x=>x[0]>x[1]).length,b=P.sets.filter(x=>x[1]>x[0]).length;return a>=nd||b>=nd;}
+function padStr(){return PAD.sets.map(x=>x[0]+'-'+x[1]+(x[2]!==null&&x[2]!==undefined?'('+x[2]+')':'')).join(' ');}
+function drawPad(){const P=PAD,k=P.sets.length,stb=P.pc.one||(P.pc.stb&&k===2),TB=P.pc.tb||6;
+  const win=stb?[[10,0],[10,1],[10,2],[10,3],[10,4],[10,5],[10,6],[10,7],[10,8],[11,9],[12,10],[13,11]]:TB===5?[[6,0],[6,1],[6,2],[6,3],[6,4],[6,5]]:[[6,0],[6,1],[6,2],[6,3],[6,4],[7,5],[7,6]];
+  const btns=side=>win.map(([x,y])=>{const v=side===1?[x,y]:[y,x];return `<button data-ps="${v[0]}-${v[1]}">${v[0]}-${v[1]}</button>`;}).join('');
+  const done=padDone();
+  OV.innerHTML=`<div class="ov-h"><div><b style="color:#fff;font-size:15px">🔢 ${h(PLid(P.id)[P.i]||'Score')}</b><br>${stb?'Super tie-break (10 points)':k===2?'3e set':'Set '+(k+1)}</div><button class="ov-x" data-ov="close">Fermer</button></div>
+   <div class="padh"><div><b>${h(P.L.n||P.L.t)}</b><small>${h(P.L.t)}</small></div><div><b>${h(P.R.n||P.R.t)}</b><small>${h(P.R.t)}</small></div></div>
+   <div class="padcur">${h(padStr())||'—'}</div>
+   ${P.tbw?`<p style="text-align:center;color:#c9d3de;margin:4px 0">Jeu décisif : points du perdant (facultatif)</p><div class="padtb">${Array.from({length:13},(_,x)=>`<button data-ptb="${x}">${x}</button>`).join('')}<button data-ptb="-">Passer</button></div>`
+     :done?`<p style="text-align:center;color:#bfe8c9">✓ Partie terminée</p>`
+     :`<div class="padg"><div><h5>Set gagné par ${h(P.L.t)}</h5><div class="padk">${btns(1)}</div></div><div><h5>Set gagné par ${h(P.R.t)}</h5><div class="padk">${btns(2)}</div></div></div>`}
+   <div class="lact" style="margin-top:12px"><button class="btn pri" data-pok${P.sets.length?'':' disabled'}>${done?'✓ Enregistrer':'Enregistrer (partie en cours)'}</button><button class="btn" data-pundo${P.sets.length?'':' disabled'}>⌫ Dernier set</button>${done?'':'<button class="btn" data-pcur>Set en cours…</button>'}<button class="btn" data-pkb>⌨️ Clavier</button></div>`;}
+function padWrite(extra){const P=PAD,v=(padStr()+(extra?' '+extra:'')).trim();P.inp.value=v;P.inp.dispatchEvent(new Event('input',{bubbles:true}));P.inp.dispatchEvent(new Event('change',{bubbles:true}));const id0=P.id;PAD=null;ovClose();updateCard(id0);toast('Score enregistré : '+v);}
 function pSelect(m,t,val,k,lab,pi){const c=m.cat,n=Math.max(nbJ(c,t),parseInt(val,10)||0),g=sexOf(c,pi,m.id);let o=`<option value="">${h(lab)}</option>`;
   const opt=i=>`<option value="${i}"${String(val)===String(i)?' selected':''}>${h(pname(c,t,i))}${ptag(c,t,i)?' · '+h(tagLabel(ptag(c,t,i))):''}${cltOf(c,t,i)?' · clt '+cltOf(c,t,i):''}</option>`;
   const idx=Array.from({length:n},(_,i)=>i+1).filter(i=>sexOk(c,t,i,g)||String(val)===String(i));
@@ -1085,14 +1117,18 @@ function roInner(m){const r=S.res[m.id]||{};if(r.wo)return '<div>Victoire par fo
     const live=isActive(S.live[m.id+'#'+i]),st=sc?partie(sc,i===x?1:2,i===x):null;
     const res=live?`<b style="color:#e0493a">● Live ${h(liveTxt(S.live[m.id+'#'+i],replay(S.live[m.id+'#'+i])))}${(r=>r.srv?' · 🎾 '+h(srvName(m,i,r)):'')(replay(S.live[m.id+'#'+i]))}</b>`:sc?(st&&st.w?`<b>${h(fmtScore(sc))}</b>`:`<b style="color:#e0493a">● ${h(fmtScore(sc))}</b>`):'<span style="opacity:.7">à jouer</span>';
     const w1=st&&st.w===1,w2=st&&st.w===2;
-    return `<div>${h(lab)} : ${w1?'<b>':''}${h(a||'…')}${w1?'</b>':''} – ${w2?'<b>':''}${h(b||'…')}${w2?'</b>':''} · ${res}</div>`;}).join('');return L||'<span>Résultat pas encore saisi.</span>';}
+    const A=`${w1?'<b>':''}${h(a||'…')}${w1?'</b>':''}`,B=`${w2?'<b>':''}${h(b||'…')}${w2?'</b>':''}`;return `<div>${h(lab)} : ${flipOf(m.id)?B+' – '+A:A+' – '+B} · ${flipOf(m.id)?res.replace(/(\d{1,3})-(\d{1,3})/g,'$2-$1'):res}</div>`;}).join('');return L||'<span>Résultat pas encore saisi.</span>';}
 const homeOf=id=>String((S.res[id]||{}).h||'');
+/* l'équipe visitée s'affiche à gauche : simple retournement d'affichage, les scores restent enregistrés dans le même sens */
+const flipOf=id=>homeOf(id)==='2';
+const flipSc=sc=>String(sc||'').replace(/(\d{1,3})-(\d{1,3})/g,'$2-$1');
+const dispSc=(id,sc)=>flipOf(id)?flipSc(sc):String(sc||'');
 const homeTag=(m,sd)=>{const hm=homeOf(m.id);return hm?`<small class="hv ${hm===String(sd)?'home':'away'}">${hm===String(sd)?'🏠 visitée':'visiteuse'}</small>`:'';};
 const canHome=m=>canEditM(m)&&(canJA(m)||!valLock(m.id))&&!(syncReady()&&S.sync.role==='marqueur');
 function card(m,tag,when){const r=S.res[m.id]||{p:[],wo:''};const P=PLid(m.id);
   return `<article class="mc${myM(m)?' mine':''}" data-card="${m.id}">
   <div class="mc-h"><span class="tag">${h(tag)}</span><span class="lvb" data-lvb hidden>Live</span><span data-when data-lieu="${h(when||'')}">${h(cardWhen(m,when))}</span></div>
-  <div class="mc-t"><span class="tm${isMine(m.t1)?' me':''}" data-s="1">${h(m.t1)}${homeTag(m,1)}</span><span class="sb" data-b>– : –</span><span class="tm${isMine(m.t2)?' me':''}" data-s="2">${h(m.t2)}${homeTag(m,2)}</span></div>
+  ${(()=>{const T1=`<span class="tm${isMine(m.t1)?' me':''}" data-s="1">${h(m.t1)}${homeTag(m,1)}</span>`,T2=`<span class="tm${isMine(m.t2)?' me':''}" data-s="2">${h(m.t2)}${homeTag(m,2)}</span>`;return `<div class="mc-t">${flipOf(m.id)?T2:T1}<span class="sb" data-b>– : –</span>${flipOf(m.id)?T1:T2}</div>`;})()}
   <div class="lvs" data-lvs></div>
   <div class="valb" data-valb></div>
   <div class="auth" data-auth></div>
@@ -1103,8 +1139,8 @@ function card(m,tag,when){const r=S.res[m.id]||{p:[],wo:''};const P=PLid(m.id);
   ${orderIdx(m).map(i=>{const p=P[i];const nm=effN(m,i),pl=planned(m,i);const dbl=i>=XB?(extrasOf(m.id)[i-XB]||{}).t==='D':/double/i.test(p);
    const side=(t,v,sd)=>{if(!dbl)return pSelect(m,t,v||'',`n${i}${sd}`,'Joueur '+t,i);const a=String(v||'').split('/');
      return `<div class="dsel pairw">${pSelect(m,t,a[0]||'',`n${i}${sd}0`,'Joueur 1 '+t,i)}${pSelect(m,t,a[1]||'',`n${i}${sd}1`,'Joueur 2 '+t,i)}<button type="button" class="pairb" data-pair="${h(JSON.stringify([`select[data-id="${m.id}"][data-k="n${i}${sd}0"]`,`select[data-id="${m.id}"][data-k="n${i}${sd}1"]`,t+' · '+p]))}">${pairLab(m.cat,t,a)}</button></div>`;};
-   return `<div class="pb" data-pi="${i}"${i===parts(m.cat).length?' data-x hidden':''}><div class="pbh">${p}${pl?'<span class="prevu">joueurs prévus</span>':''}</div><span class="lock-note" data-lk hidden>Partie en Live : saisie verrouillée pendant le comptage</span><div class="pn">${side(m.t1,nm[0],'a')}${side(m.t2,nm[1],'b')}</div>
-    <div class="scrow"><input class="scin" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-id="${m.id}" data-k="${i}" value="${h((r.p||[])[i]||'')}" placeholder="Score : 6-4 3-2… (partiel accepté)" aria-label="Score ${p}"><button class="btn lv" data-live="${m.id}|${i}">▶ Live</button></div>
+   return `<div class="pb" data-pi="${i}"${i===parts(m.cat).length?' data-x hidden':''}><div class="pbh">${p}${pl?'<span class="prevu">joueurs prévus</span>':''}</div><span class="lock-note" data-lk hidden>Partie en Live : saisie verrouillée pendant le comptage</span><div class="pn">${flipOf(m.id)?side(m.t2,nm[1],'b')+side(m.t1,nm[0],'a'):side(m.t1,nm[0],'a')+side(m.t2,nm[1],'b')}</div>
+    <div class="scrow"><input class="scin" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-id="${m.id}" data-k="${i}" value="${h(dispSc(m.id,(r.p||[])[i]||''))}" placeholder="Score : 6-4 3-2… (partiel accepté)" aria-label="Score ${p}"><button class="btn padb" data-pad="${m.id}|${i}" title="Pavé de scores">🔢</button><button class="btn lv" data-live="${m.id}|${i}">▶ Live</button></div>
     <select class="wosel" data-wo="${m.id}|${i}" aria-label="Forfait ou abandon ${p}"><option value="">Forfait / abandon…</option><option value="f2">Forfait de ${h(m.t1)} → partie à ${h(m.t2)}</option><option value="f1">Forfait de ${h(m.t2)} → partie à ${h(m.t1)}</option><option value="a2">Abandon de ${h(m.t1)} (score en cours complété)</option><option value="a1">Abandon de ${h(m.t2)} (score en cours complété)</option></select><span class="pr" data-pr="${i}"></span></div>`;}).join('')}
   ${syncReady()&&S.sync.role==='admin'?`<div class="xadd"><span>📲 Confier la saisie de cette rencontre</span><button class="btn sm" data-marq="${m.id}">Créer un accès marqueur</button></div>`:''}
   ${canJA(m)?`<div class="xadd"><span>➕ Partie supplémentaire</span><select data-xt="${m.id}"><option value="S">Simple</option><option value="D">Double</option></select><input data-xl="${m.id}" placeholder="Nom (ex. Double garçons n°2)" autocomplete="off"><button class="btn sm" data-xadd="${m.id}">Ajouter</button>${extrasOf(m.id).map((x,j)=>String((r.p||[])[XB+j]||'').trim()?'':`<button class="btn sm danger" data-xdel="${m.id}|${j}">✕ ${h(x.l)}</button>`).join('')}</div>`:''}
@@ -1117,7 +1153,7 @@ function card(m,tag,when){const r=S.res[m.id]||{p:[],wo:''};const P=PLid(m.id);
 
 function updateCard(id){const el=main.querySelector(`[data-card="${id}"]`);if(!el)return;const m=getMatch(id);if(!m)return;
   const e=ev(id),r=S.res[id]||{p:[]};
-  el.querySelector('[data-b]').innerHTML=e.any?`${fmtPts(e.p1)} : ${fmtPts(e.p2)}${e.off?`<small>score officiel FRMT${e.draw?' · nul':''}${offDetail(id,e)}</small>`:e.wo?'<small>forfait</small>':e.draw?'<small>match nul</small>':e.done?'<small>terminée</small>':e.x&&!e.w?'<small>égalité : double décisif</small>':`<small>${e.dec}/${e.n} parties jouées</small>`}`:'– : –';
+  el.querySelector('[data-b]').innerHTML=e.any?`${fmtPts(flipOf(id)?e.p2:e.p1)} : ${fmtPts(flipOf(id)?e.p1:e.p2)}${e.off?`<small>score officiel FRMT${e.draw?' · nul':''}${offDetail(id,e)}</small>`:e.wo?'<small>forfait</small>':e.draw?'<small>match nul</small>':e.done?'<small>terminée</small>':e.x&&!e.w?'<small>égalité : double décisif</small>':`<small>${e.dec}/${e.n} parties jouées</small>`}`:'– : –';
   el.classList.toggle('done',e.done);
   el.querySelector('[data-s="1"]').classList.toggle('win',e.done&&e.w===1);
   el.querySelector('[data-s="2"]').classList.toggle('win',e.done&&e.w===2);
@@ -1142,7 +1178,7 @@ function applyLock(el,id){const P=PLid(id),act=[];const ex=ev(id);const xb=el.qu
     const b=pb.querySelector('[data-live]');if(b){b.hidden=dl||vl;b.textContent=on?(liveForeign(L)?'👁 Suivre':'▶ Reprendre'):'▶ Live';}});
   el.classList.toggle('onair',act.length>0);const bd=el.querySelector('[data-lvb]');if(bd)bd.hidden=!act.length;
   const wo=el.querySelector('select[data-k="wo"]');if(wo)wo.disabled=act.length>0||doneLock(id,'w')||valLock(id);const cl=el.querySelector('[data-clear]');if(cl)cl.disabled=act.length>0;
-  const st=el.querySelector('[data-lvs]');if(st)st.innerHTML=act.map(x=>`<div role="button" tabindex="0" data-live="${id}|${x.i}"><b>LIVE</b>${h(x.lab)} : ${h(liveTxt(x.L,replay(x.L)))}${(r=>r.srv?' · 🎾 '+h(srvName(getMatch(id),x.i,r)):'')(replay(x.L))}</div>`).join('');}
+  const st=el.querySelector('[data-lvs]');if(st)st.innerHTML=act.map(x=>`<div role="button" tabindex="0" data-live="${id}|${x.i}"><b>LIVE</b>${h(x.lab)} : ${h(dispSc(id,liveTxt(x.L,replay(x.L))))}${(r=>r.srv?' · 🎾 '+h(srvName(getMatch(id),x.i,r)):'')(replay(x.L))}</div>`).join('');}
 
 function standTable(cat,pl,st){const two=cat.type==='2P';
   const rows=st.rows.map((r,i)=>{const cls=two?(i<2?'q':''):(st.complete?(i===0?'g1':i===1?'g2':''):'');
@@ -1859,8 +1895,8 @@ function drawLive(){const {id,i}=LIVE,m=getMatch(id),c=m.cat,L=S.live[id+'#'+i],
   else if(!L.noad&&R.p[0]>=3&&R.p[1]>=3)stt=R.p[0]===R.p[1]?'Égalité':'Avantage '+who[R.p[0]>R.p[1]?0:1];
   else if(L.noad&&R.p[0]===3&&R.p[1]===3)stt='Point décisif';
   OV.innerHTML=`<div class="ov-h"><div><b style="color:#fff;font-size:15px">${h(lab)}</b><br>${h(catLabel(c))} · ${h(m.t1)} contre ${h(m.t2)}</div><button class="ov-x" data-ov="close">Fermer</button></div>
-   <div class="sbd">${row(0)}${row(1)}</div><div class="lstat">${h(stt)}</div>
-   ${LIVE.ro?`<div class="lro">👁 Suivi en Live, lecture seule.<br>Les points sont comptés sur l'appareil « ${h(L.dev||'autre appareil')} », mis à jour ${ago(L.ts)}.${R.w?'<br><b style="color:var(--ball)">Partie terminée.</b>':''}${canAdmin()&&!R.w?'<br><button class="btn" data-lint style="margin-top:12px">⏹ Interrompre ce Live (organisateur)</button>':''}</div>`:`<div class="lbtns"><button class="lbtn" data-lp="1"${R.w?' disabled':''}>Point pour<b>${h(who[0])}</b></button><button class="lbtn" data-lp="2"${R.w?' disabled':''}>Point pour<b>${h(who[1])}</b></button></div>
+   <div class="sbd">${flipOf(id)?row(1)+row(0):row(0)+row(1)}</div><div class="lstat">${h(stt)}</div>
+   ${LIVE.ro?`<div class="lro">👁 Suivi en Live, lecture seule.<br>Les points sont comptés sur l'appareil « ${h(L.dev||'autre appareil')} », mis à jour ${ago(L.ts)}.${R.w?'<br><b style="color:var(--ball)">Partie terminée.</b>':''}${canAdmin()&&!R.w?'<br><button class="btn" data-lint style="margin-top:12px">⏹ Interrompre ce Live (organisateur)</button>':''}</div>`:`<div class="lbtns">${(()=>{const B1=`<button class="lbtn" data-lp="1"${R.w?' disabled':''}>Point pour<b>${h(who[0])}</b></button>`,B2=`<button class="lbtn" data-lp="2"${R.w?' disabled':''}>Point pour<b>${h(who[1])}</b></button>`;return flipOf(id)?B2+B1:B1+B2;})()}</div>
    ${R.w||L.trk===0?'':`<div class="lserve">${L.flt?`<span style="align-self:center;color:#ffd08a;font-weight:700">2e balle</span><button class="btn flt" data-ldf>✗✗ Double faute</button><button class="btn" data-lace>🎯 Ace (2e balle)</button><button class="btn" data-lflt>↶ Annuler la faute</button>`
      :`<button class="btn" data-lflt>✗ Faute de 1re balle</button><button class="btn" data-lace>🎯 Ace</button>`}</div>`}
    ${LIVE.ro||R.w?'':`<div class="lsrv">${L.pts.length?`🎾 Au service : <b style="color:#fff">${h(who[R.srv-1]||'')}</b> <button class="btn" data-lswap>⇄ Corriger le serveur</button>`:`Qui sert en premier ? <button class="btn${(+L.srv||1)===1?' on':''}" data-lsrv="1">${h(who[0])}</button><button class="btn${+L.srv===2?' on':''}" data-lsrv="2">${h(who[1])}</button>`}</div>`}<div class="lopts"><label><input type="checkbox" data-lopt="stb"${L.stb?' checked':''}> 3e set en super tie-break</label><label><input type="checkbox" data-lopt="noad"${L.noad?' checked':''}> Point décisif à 40-40</label><label><input type="checkbox" data-lopt="trk"${L.trk===0?'':' checked'}> Noter 1re / 2e balle</label></div>
@@ -1872,7 +1908,7 @@ function afterLive(){const {id,i}=LIVE,L=S.live[id+'#'+i],R=replay(L);L.ts=Date.
     if(ps&&r.p[i]!==ps){r.p[i]=ps;S.ts[id]=now();markDirty(id,String(i));}}
   else if(L.w){if(r.p[i]===L.w){r.p[i]='';S.ts[id]=now();markDirty(id,String(i));}L.w='';}
   save();drawLive();
-  const inp=main.querySelector(`[data-card="${id}"] input[data-k="${i}"]`);if(inp)inp.value=r.p[i]||'';updateCard(id);
+  const inp=main.querySelector(`[data-card="${id}"] input[data-k="${i}"]`);if(inp)inp.value=dispSc(id,r.p[i]||'');updateCard(id);
   if(S.tab==='cat'&&document.getElementById('stand')){refreshLive();renderFinalsCards();}}
 
 /* ----- QR code : afficher ----- */
@@ -1945,6 +1981,14 @@ OV.addEventListener('click',e=>{const t=e.target;
     if(t.closest('[data-lreset]')){if(confirm('Effacer tous les points de cette partie ?')){L.pts=[];L.sv=[];L.flt=false;afterLive();}return;}}
   if(OVMODE==='qr'){const q=t.closest('[data-qr]');if(q&&QRC)QRC[q.dataset.qr]();}
   if(OVMODE==='marq'){const b=t.closest('[data-mq]');if(!b)return;const id=(OV.querySelector('.ov-h b')&&S._mqid)||'';sendMarq(S._mqid,b.dataset.mq);return;}
+  if(OVMODE==='pad'&&PAD){const P=PAD,b=t.closest('[data-ps]');
+    if(b){const [x,y]=b.dataset.ps.split('-').map(Number);P.sets.push([x,y,null]);const TB=P.pc.tb||6,M=Math.max(x,y),n=Math.min(x,y),stb=P.pc.one||(P.pc.stb&&P.sets.length===3);
+      if(!stb&&M===TB+1&&n===TB)P.tbw=true;else if(padDone()){padWrite();return;}drawPad();return;}
+    const tb=t.closest('[data-ptb]');if(tb){if(tb.dataset.ptb!=='-')P.sets[P.sets.length-1][2]=+tb.dataset.ptb;P.tbw=false;if(padDone()){padWrite();return;}drawPad();return;}
+    if(t.closest('[data-pundo]')){P.sets.pop();P.tbw=false;drawPad();return;}
+    if(t.closest('[data-pok]')){padWrite();return;}
+    if(t.closest('[data-pcur]')){const v=prompt('Score du set en cours, vu de gauche (ex. 3-2) :','');if(v&&/^\s*\d{1,2}\s*-\s*\d{1,2}\s*$/.test(v))padWrite(v.replace(/\s/g,''));return;}
+    if(t.closest('[data-pkb]')){const inp=P.inp;PAD=null;ovClose();setTimeout(()=>{inp.focus();},50);return;}}
   if(OVMODE==='pair'&&PAIR){const cb=t.closest('[data-pp]');if(cb){const v=cb.dataset.pp;let s0=PAIR.sel.slice();if(s0.includes(v))s0=s0.filter(x=>x!==v);else{if(s0.length>=2)s0.shift();s0.push(v);}PAIR.sel=s0;PAIR.draw();return;}
     if(t.closest('[data-ppclr]')){PAIR.sel=[];PAIR.draw();return;}
     if(t.closest('[data-ppok]')){const [a,b]=PAIR.sel;const {s1,s2}=PAIR;ovClose();s1.value=a||'';s1.dispatchEvent(new Event('change',{bubbles:true}));const s2b=document.querySelector(`select[${s2.hasAttribute('data-dz')?'data-dz="'+s2.dataset.dz+'"':'data-id="'+s2.dataset.id+'"][data-k="'+s2.dataset.k+'"'}]`)||s2;s2b.value=b||'';s2b.dispatchEvent(new Event('change',{bubbles:true}));PAIR=null;render();return;}}
@@ -2058,7 +2102,7 @@ function applyRemote(changed,rosterChanged){renderGlobal();const ae=document.act
   const busy=ae&&main.contains(ae)&&/INPUT|SELECT|TEXTAREA/.test(ae.tagName);
   if(S.tab==='cat'&&!rosterChanged&&canEdit()&&document.getElementById('stand')){
     changed.forEach(id=>{const el=main.querySelector(`[data-card="${id}"]`);if(!el)return;const r=S.res[id]||{p:[],n:[],wo:''};
-      el.querySelectorAll('input[data-k]').forEach(inp=>{if(inp!==ae)inp.value=(r.p||[])[+inp.dataset.k]||'';});
+      el.querySelectorAll('input[data-k]').forEach(inp=>{if(inp!==ae)inp.value=dispSc(id,(r.p||[])[+inp.dataset.k]||'');});
       el.querySelectorAll('select[data-k]').forEach(se=>{if(se===ae)return;const k=se.dataset.k;if(k==='wo'){se.value=r.wo||'';return;}
         const m=k.match(/^n(\d+)([ab])(\d)?$/);if(m){const v=String(((r.n||[])[+m[1]]||[])[m[2]==='a'?0:1]||'');se.value=m[3]!==undefined?(v.split('/')[+m[3]]||''):v;}});
       updateCard(id);});
@@ -2115,7 +2159,7 @@ function liveCard(x){const {m,c,L,R,i}=x;const r=S.res[m.id]||{},nm=effN(m,i);co
   const where=m.lieu?venueName(m.lieu):venueName(finLieu(c));
   return `<div class="lc${R.w?' fin':''}${mine?' mine':''}" role="button" tabindex="0" data-go="${m.id}" data-gocat="${c.id}">
    <div class="lc-h"><span><b>${h(lab)}</b> · ${h(catLabel(c))}${m.tag?' · '+m.tag:c.type==='2P'?' · Poule '+m.poule:''}</span><span class="${R.w||!isActive(L)?'done':'dot'}">${R.w?'Terminé':isActive(L)?'Live':'Interrompu'}</span></div>
-   ${row(0)}${row(1)}<div class="lc-f"><span>${h(stt)}</span><span>Rencontre ${fmtPts(e.p1)}-${fmtPts(e.p2)}${where?' · '+h(where):''} · ${ago(x.ts)}${L.dev?' · '+h(L.dev):''}</span></div></div>`;}
+   ${flipOf(m.id)?row(1)+row(0):row(0)+row(1)}<div class="lc-f"><span>${h(stt)}</span><span>Rencontre ${fmtPts(flipOf(m.id)?e.p2:e.p1)}-${fmtPts(flipOf(m.id)?e.p1:e.p2)}${where?' · '+h(where):''} · ${ago(x.ts)}${L.dev?' · '+h(L.dev):''}</span></div></div>`;}
 function liveList(mine){let L=liveEntries();if(mine)L=L.filter(x=>myM(x.m));
   const on=L.filter(x=>!x.R.w),fin=L.filter(x=>x.R.w);
   return {on,fin,html:(on.length?`<div class="lgrid">${on.map(liveCard).join('')}</div>`:`<div class="empty" style="margin-top:0">Aucune partie en cours${mine?' pour '+h(S.myClub):''} pour le moment.</div>`)
@@ -2156,7 +2200,7 @@ function syncUI(){const b=document.getElementById('syncst');if(!b)return;if(!syn
   b.title=S.sync.err||'Synchroniser maintenant';}
 document.getElementById('syncst').addEventListener('click',()=>syncNow(true));
 document.getElementById('who').addEventListener('click',()=>{S.tab='data';save();render();window.scrollTo(0,0);});
-const APP_VERSION='2026-09-30 18:00';
+const APP_VERSION='2026-10-01 09:00';
 const DEFAULT_APP_URL='https://mrani-hub.github.io/tennis-jeunes-7q4/';
 const appUrl=()=>{const u=String(S.appUrl||'').trim();if(/^https:\/\//.test(u))return u.replace(/#.*$/,'');return /^https:$/.test(location.protocol)?location.origin+location.pathname:DEFAULT_APP_URL;};
 const inviteLink=code=>appUrl()?appUrl()+'#i='+code:'';
@@ -2414,7 +2458,7 @@ main.addEventListener('input',e=>{const t=e.target;
     S.rosterTs[k]=now();save();toast('Numérotation enregistrée');return;}
   if(t.dataset.pc){const k=t.dataset.pc;if(!canRosterK(k))return;const C=Array.from(((S.rosterClt||{})[k])||[],x=>x||'');while(C.length<=+t.dataset.i)C.push('');C[+t.dataset.i]=t.value.trim();S.rosterClt=Object.assign({},S.rosterClt,{[k]:C});S.rosterTs[k]=now();save();return;}
   if(t.dataset.pt){if(!canRosterK(t.dataset.pt))return;const k=t.dataset.pt,T=S.rosterTag[k]=Array.from(S.rosterTag[k]||[],x=>x||'');while(T.length<=+t.dataset.i)T.push('');T[+t.dataset.i]=t.value;S.rosterTs[k]=now();save();return;}
-  if(t.dataset.id&&t.dataset.k!=='wo'){const id=t.dataset.id;const r=S.res[id]=S.res[id]||{p:[],wo:''};r.p[+t.dataset.k]=normScore(t.value,partOf(catOfId(id),+t.dataset.k,id));S.ts[id]=now();markDirty(id,t.dataset.k);stopLiveIfFinal(id,+t.dataset.k);if(t.value.trim())fillPlanned(id,+t.dataset.k);save();updateCard(id);refreshLive();}});
+  if(t.dataset.id&&t.dataset.k!=='wo'){const id=t.dataset.id;const r=S.res[id]=S.res[id]||{p:[],wo:''};r.p[+t.dataset.k]=(v0=>flipOf(id)?flipSc(v0):v0)(normScore(t.value,partOf(catOfId(id),+t.dataset.k,id)));S.ts[id]=now();markDirty(id,t.dataset.k);stopLiveIfFinal(id,+t.dataset.k);if(t.value.trim())fillPlanned(id,+t.dataset.k);save();updateCard(id);refreshLive();}});
 main.addEventListener('change',e=>{const t=e.target;
   if(t.dataset.hour){if(!canAdmin())return;setHour(t.dataset.hour,t.value);if(S.tab==='cat')updateCard(t.dataset.hour);if(S.tab==='prog'){toast(t.value?'Heure enregistrée : '+fmtH(t.value):'Heure effacée');const b=t.parentElement;if(b&&t.value&&!b.querySelector('[data-hclr]'))b.insertAdjacentHTML('beforeend',` <button data-hclr="${t.dataset.hour}" title="Effacer l'heure">✕</button>`);}return;}
   if(t.classList&&t.classList.contains('scin')&&t.dataset.id){const v=normScore(t.value,partOf(catOfId(t.dataset.id),+t.dataset.k,t.dataset.id));if(v!==t.value)t.value=v;}
@@ -2521,6 +2565,7 @@ main.addEventListener('click',e=>{const t=e.target;
     if(!confirm('Retirer cette partie supplémentaire ?'))return;const L=extrasOf(id);L.splice(+j,1);
     for(let q=+j;q<L.length+1;q++){r.p=r.p||[];r.n=r.n||[];r.p[XB+q]=r.p[XB+q+1]||'';r.n[XB+q]=r.n[XB+q+1]||['',''];if(q<L.length+1)markDirty(id,String(XB+q));}
     r.x=L.length?JSON.stringify(L):'';markDirty(id,'x');S.ts[id]=now();save();render();toast('Partie retirée');return;}
+  const pd0=t.closest('[data-pad]');if(pd0){const [id,i]=pd0.dataset.pad.split('|');openPad(id,+i);return;}
   const pb0=t.closest('[data-pair]');if(pb0){openPair(pb0);return;}
   const mq0=t.closest('[data-marq]');if(mq0){showMarqInv(mq0.dataset.marq);return;}
   if(t.closest('[data-rankimp]')){importRank();return;}
