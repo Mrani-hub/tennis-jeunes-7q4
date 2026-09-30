@@ -611,6 +611,8 @@ body.marqm .wosel{display:inline-block}
 .ldet .btn.on{background:var(--ball);color:#10233a;border-color:var(--ball)}
 .lstats td.gd{background:rgba(31,168,85,.28);color:#bff0cf;font-weight:700}.lstats td.bd{background:rgba(224,73,58,.22);color:#ffc9c2}.lleg{margin:4px 0 0;font-size:11px;color:#9fb0c2;text-align:center}.lleg .gd{color:#7fe0a3}.lleg .bd{color:#ff9d92}
 .lstats{margin:10px 0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:6px 8px}.lstats table{width:100%;border-collapse:collapse;font-size:13.5px;color:#fff}.lstats th{font:700 13px var(--fb);color:var(--ball);padding:4px}.lstats td{padding:5px 4px;border-top:1px solid rgba(255,255,255,.12);text-align:center}.lstats td.l{color:#9fb0c2;font-size:12px}.lstats small{color:#9fb0c2}
+.cst{margin-top:6px}.cstb{width:100%;padding:8px;border:1px solid rgba(255,255,255,.25);border-radius:8px;background:transparent;color:var(--ball);font:600 13.5px var(--fb);cursor:pointer}
+.cst .lstats{margin:8px 0 2px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -2305,8 +2307,9 @@ function setClive(m){const j=JSON.stringify(m||{});if(j===S._cj)return;S._cj=j;S
 function carnetLives(){const out=[];Object.entries(S.clive||{}).forEach(([id,x])=>{try{const o=JSON.parse(x.d);if(!o||!o.q)return;const L=decQ(o.q);if(!L)return;out.push({id,o,L,R:replay(L),t:x.t});}catch(e){}});return out.sort((a,b)=>b.t-a.t);}
 function carnetLiveHTML(){const L0=carnetLives();if(!L0.length)return '';const adm=canAdmin()&&syncReady();
   return `<h3>📒 Live des carnets de match (${L0.length})</h3><p class="legend" style="margin-top:-4px">Matchs diffusés par des parents ou entraîneurs depuis le carnet de match. Non vérifiés par l'organisateur.</p>${L0.map(({id,o,L,R,t})=>{const c=CATMAP[o.c],nm=S0=>(S0.n||[]).map((n,j)=>n+' ('+((S0.cl||[])[j]||'NC')+')').join(' / ');
-    const m=o.m&&getMatch(o.m),cols=R.sets.length+(R.w?1:2);const row=(sd,S0)=>{const k=sd-1;return `<div class="lr${R.w===sd?' win':''}" style="--n:${cols}"><span class="nm">${h(nm(S0))}${!R.w&&R.srv===sd?'<span class="srvb">🎾</span>':''} <small>${h(S0.t||'')}</small></span>${R.sets.map(x=>`<span class="st">${x[k]}</span>`).join('')}${R.w?'':`<span class="st cur">${R.stb?'':R.g[k]}</span>`}<span class="${R.w?'st':'pt'}">${R.w?(R.w===sd?'✓':''):ptLabel(R,k,L)}</span></div>`;};
+    const m=o.m&&getMatch(o.m),cols=R.sets.length+(R.w?0:1);const row=(sd,S0)=>{const k=sd-1;return `<div class="lr${R.w===sd?' win':''}" style="--n:${cols}"><span class="nm">${h(nm(S0))}${!R.w&&R.srv===sd?'<span class="srvb">🎾</span>':''} <small>${h(S0.t||'')}</small></span>${R.sets.map(x=>`<span class="st">${x[k]}</span>`).join('')}${R.w?'':`<span class="st cur">${R.stb?'':R.g[k]}</span>`}<span class="${R.w?'st':'pt'}">${R.w?(R.w===sd?'✓':''):ptLabel(R,k,L)}</span></div>`;};
     return `<div class="lc${R.w?'':' on'}"><div class="lc-h"><span><b>${h(o.lab||'')}</b> · ${h(c?catLabel(c):'')}${m?' · '+h(m.t1)+' – '+h(m.t2):' · hors championnat'}</span><span class="${R.w?'done':'dot'}">${R.w?'Terminé':'Live'}</span></div>${row(1,o.A)}${row(2,o.B)}
+     <div class="cst"><button class="cstb" data-cst="${h(id)}">📊 ${(S._cst||{})[id]?'Masquer':'Voir'} les statistiques du match</button>${(S._cst||{})[id]?liveStats(L,[o.A,o.B].map(S0=>h(String((S0.n||[])[0]||S0.t||'').split(' ')[0]))):''}</div>
      <div class="lc-f"><span>📒 Carnet de match · ${ago(t)}</span>${adm?`<button class="btn sm danger" data-cban="${h(id)}">⛔ Arrêter ce Live</button>`:''}</div></div>`;}).join('')}`;}
 async function banCarnet(id){if(!confirm("Arrêter ce Live du carnet ? L'appareil qui le diffuse ne pourra plus l'envoyer."))return;
   try{const r=await fetch(S.sync.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'live',key:S.sync.key,venue:S.sync.venue||'',device:S.sync.device||'',devId:S.devId,live:[],cban:id}),redirect:'follow'});const d=await r.json();
@@ -2330,7 +2333,7 @@ function syncUI(){const b=document.getElementById('syncst');if(!b)return;if(!syn
   b.title=S.sync.err||'Synchroniser maintenant';}
 document.getElementById('syncst').addEventListener('click',()=>syncNow(true));
 document.getElementById('who').addEventListener('click',()=>{S.tab='data';save();render();window.scrollTo(0,0);});
-const APP_VERSION='2026-10-02 18:00';
+const APP_VERSION='2026-10-02 19:00';
 const DEFAULT_APP_URL='https://mrani-hub.github.io/tennis-jeunes-7q4/';
 const appUrl=()=>{const u=String(S.appUrl||'').trim();if(/^https:\/\//.test(u))return u.replace(/#.*$/,'');return /^https:$/.test(location.protocol)?location.origin+location.pathname:DEFAULT_APP_URL;};
 const inviteLink=code=>appUrl()?appUrl()+'#i='+code:'';
@@ -2697,6 +2700,7 @@ main.addEventListener('click',e=>{const t=e.target;
     if(!confirm('Retirer cette partie supplémentaire ?'))return;const L=extrasOf(id);L.splice(+j,1);
     for(let q=+j;q<L.length+1;q++){r.p=r.p||[];r.n=r.n||[];r.p[XB+q]=r.p[XB+q+1]||'';r.n[XB+q]=r.n[XB+q+1]||['',''];if(q<L.length+1)markDirty(id,String(XB+q));}
     r.x=L.length?JSON.stringify(L):'';markDirty(id,'x');S.ts[id]=now();save();render();toast('Partie retirée');return;}
+  const cs0=t.closest('[data-cst]');if(cs0){e.preventDefault&&e.preventDefault();e.stopPropagation&&e.stopPropagation();const id=cs0.dataset.cst;S._cst=Object.assign({},S._cst,{[id]:!(S._cst||{})[id]});render();return;}
   const cb0=t.closest('[data-cban]');if(cb0){banCarnet(cb0.dataset.cban);return;}
   const cn0=t.closest('[data-carnet]');if(cn0){copyText(cn0.dataset.carnet);return;}
   const cw0=t.closest('[data-carnetwa]');if(cw0){doShare(`📒 Carnet de match – Championnat jeunes FRMT\nEnregistrez un match point par point (service, 1re / 2e balle, winners, fautes…) et obtenez ses statistiques. Fonctionne même sans réseau.\n👉 ${cw0.dataset.carnetwa}\nÀ la fin du match, touchez « Envoyer » pour me le transmettre.`,navigator.share?'native':'wa');return;}
