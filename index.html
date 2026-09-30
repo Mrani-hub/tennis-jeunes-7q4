@@ -2202,7 +2202,7 @@ async function syncNow(manual){if(!syncReady()){if(manual)toast("Renseignez l'ad
     notes=d.notes||[];notes.filter(x=>x.st==='refus').forEach(x=>{const rec=(d.results||[]).find(r=>r&&!Array.isArray(r)&&r.id===x.id);const r=S.res[x.id];if(!r)return;
       const u=rec&&rec.u&&rec.u[x.k];setUnit(r,String(x.k),u?(u.v||[]).map(v=>String(v||'')):(x.k==='w'||x.k==='v'?['']:['','','']));if(S.dirty[x.id]){delete S.dirty[x.id][x.k];if(!Object.keys(S.dirty[x.id]).length)delete S.dirty[x.id];}if(!changed.includes(x.id))changed.push(x.id);});if(d.journal)S.sync.journal=d.journal;
     recu=changed.filter(id=>ev(id).any).length;
-    if(d.clive)S.clive=d.clive;if(d.presence)S.sync.presence=d.presence;S.sync.srvVer=d.version||(d.codes&&d.codes.ja?5:d.notes?4:3);const oldRole=S.sync.role;if(d.role)S.sync.role=d.role;S.sync.codes=d.codes||(S.sync.role==='admin'?S.sync.codes:null);if(oldRole!==S.sync.role)rosterChanged=true;
+    if(d.clive)setClive(d.clive);if(d.presence)S.sync.presence=d.presence;S.sync.srvVer=d.version||(d.codes&&d.codes.ja?5:d.notes?4:3);const oldRole=S.sync.role;if(d.role)S.sync.role=d.role;S.sync.codes=d.codes||(S.sync.role==='admin'?S.sync.codes:null);if(oldRole!==S.sync.role)rosterChanged=true;
     S.sync.pullAt=d.now||Date.now();S.sync.lastOk=Date.now();S.sync.err='';if(d.live)applyLive(d.live);}
   catch(e){S.sync.err=e&&e.name==='AbortError'?'Délai dépassé, réseau trop lent':(!navigator.onLine?'Pas de connexion Internet':(e&&e.message&&!/fetch|network|Load failed/i.test(e.message)?e.message:"Script injoignable : vérifiez l'adresse et le déploiement (accès « Tout le monde »)"));}
   SYNCING=false;
@@ -2257,7 +2257,7 @@ async function liveSync(manual){if(!syncReady()){if(manual)toast("Configurez la 
   try{const ac=new AbortController(),to=setTimeout(()=>ac.abort(),15000);
     const res=await fetch(S.sync.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'live',key:S.sync.key,venue:S.sync.venue||'',team:S.sync.team||'',pidx:S.sync.pidx||0,match:S.sync.match||'',device:S.sync.device||'',devId:S.devId,club:S.myClub||'',live:items}),signal:ac.signal,redirect:'follow'});
     clearTimeout(to);const d=await res.json();if(!d.ok)throw new Error(d.error||'');
-    items.forEach(x=>{if(S.live[x.k]&&S.live[x.k].ts===x.ts)S.sync.sentL[x.k]=x.ts;});if(d.presence){S.sync.presence=d.presence;if(S.tab==='data'&&!OVMODE)renderPresence();}if(d.clive)S.clive=d.clive;applyLive(d.live);
+    items.forEach(x=>{if(S.live[x.k]&&S.live[x.k].ts===x.ts)S.sync.sentL[x.k]=x.ts;});if(d.presence){S.sync.presence=d.presence;if(S.tab==='data'&&!OVMODE)renderPresence();}if(d.clive)setClive(d.clive);applyLive(d.live);
     if(manual)toast('Live actualisé');}
   catch(e){if(manual)toast('Live injoignable pour le moment');}
   LSYNC=false;}
@@ -2300,7 +2300,8 @@ function upNextHTML(mine){const L=upNext(mine);if(!L.length)return '';
   return `<h3>🔜 Affiches à suivre (${L.length})</h3><div class="venue">${L.slice(0,40).map(({m,c,i,lab,n})=>`<div class="prow${myM(m)?' mine':''}" role="button" tabindex="0" data-go="${m.id}" data-gocat="${c.id}">
     <span class="c">${h(catLabel(c))} · ${h(lab)}<br>${m.date?h(DSHORT[m.date])+' · '+h(whenTxt(m,m.lieu))+' · 📍 '+h(venueName(m.lieu)):h(m.tag||'Phase finale')}</span>
     <span class="a">${h(pnamesC(c,m.t1,n[0]))} <small class="clubn">${h(m.t1)}</small></span><span class="s e">vs</span><span class="b">${h(pnamesC(c,m.t2,n[1]))} <small class="clubn">${h(m.t2)}</small></span></div>`).join('')}</div>${L.length>40?`<p class="legend">… et ${L.length-40} autres affiches.</p>`:''}`;}
-/* Live diffusés depuis le carnet de match (public) */
+/* Live diffusés depuis le carnet de match (public) : l'affichage suit chaque nouveau point reçu */
+function setClive(m){const j=JSON.stringify(m||{});if(j===S._cj)return;S._cj=j;S.clive=m||{};if(!OVMODE&&(S.tab==='live'||S.tab==='mine'))render();}
 function carnetLives(){const out=[];Object.entries(S.clive||{}).forEach(([id,x])=>{try{const o=JSON.parse(x.d);if(!o||!o.q)return;const L=decQ(o.q);if(!L)return;out.push({id,o,L,R:replay(L),t:x.t});}catch(e){}});return out.sort((a,b)=>b.t-a.t);}
 function carnetLiveHTML(){const L0=carnetLives();if(!L0.length)return '';const adm=canAdmin()&&syncReady();
   return `<h3>📒 Live des carnets de match (${L0.length})</h3><p class="legend" style="margin-top:-4px">Matchs diffusés par des parents ou entraîneurs depuis le carnet de match. Non vérifiés par l'organisateur.</p>${L0.map(({id,o,L,R,t})=>{const c=CATMAP[o.c],nm=S0=>(S0.n||[]).map((n,j)=>n+' ('+((S0.cl||[])[j]||'NC')+')').join(' / ');
@@ -2329,7 +2330,7 @@ function syncUI(){const b=document.getElementById('syncst');if(!b)return;if(!syn
   b.title=S.sync.err||'Synchroniser maintenant';}
 document.getElementById('syncst').addEventListener('click',()=>syncNow(true));
 document.getElementById('who').addEventListener('click',()=>{S.tab='data';save();render();window.scrollTo(0,0);});
-const APP_VERSION='2026-10-02 16:00';
+const APP_VERSION='2026-10-02 18:00';
 const DEFAULT_APP_URL='https://mrani-hub.github.io/tennis-jeunes-7q4/';
 const appUrl=()=>{const u=String(S.appUrl||'').trim();if(/^https:\/\//.test(u))return u.replace(/#.*$/,'');return /^https:$/.test(location.protocol)?location.origin+location.pathname:DEFAULT_APP_URL;};
 const inviteLink=code=>appUrl()?appUrl()+'#i='+code:'';
