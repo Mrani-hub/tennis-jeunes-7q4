@@ -52,6 +52,18 @@ select,input:not([type=checkbox]){width:100%;padding:10px;border:1px solid var(-
 .lvb{display:block;text-align:center;font:600 12.5px var(--fb);color:#bff0cf;margin:-4px 0 8px}.lvb.err{color:#ffd08a}.lvb.ban{color:#ff9d92}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--board);color:#fff;padding:10px 16px;border-radius:10px;z-index:60;font-size:14px}
 @media print{.acts,.lnk,header p{display:none}body{background:#fff}section{break-inside:avoid}}
+.rp{background:#fff;color:#14212e;border-radius:12px;padding:14px;font-size:14px;line-height:1.45}
+.rp-h h3{margin:0;font:700 20px var(--fd,'Arial Narrow');color:#1d4e89}.rp-h p{margin:2px 0;color:#5a6573}.rp-h .rp-sc{font:700 18px var(--fd,'Arial Narrow');color:#14212e}
+.rp-k{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}.rp-k div{background:#f3f5f7;border-radius:10px;padding:8px;text-align:center}.rp-k b{display:block;font:700 22px var(--fd,'Arial Narrow')}.rp-k small{color:#5a6573;font-size:12px}
+.rp-mo svg{width:100%;height:auto;border:1px solid #d5dce3;border-radius:8px;background:#fff}.rp-n{color:#5a6573;font-size:12px;margin:4px 0}
+.rp-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:10px}
+.rp-pl{border:1px solid #d5dce3;border-radius:10px;padding:10px}.rp-pl h4{margin:0 0 6px;font:700 17px var(--fd,'Arial Narrow');color:#1d4e89}.rp-pl h4 small{font:500 12px system-ui;color:#5a6573}
+.rp-pl h5{margin:10px 0 4px;font-size:13px;color:#14212e;text-transform:uppercase;letter-spacing:.4px}
+.rp-sum{display:flex;flex-wrap:wrap;gap:6px}.rp-sum span{background:#f3f5f7;border-radius:6px;padding:2px 8px;font-size:12.5px}
+.rp-t{width:100%;border-collapse:collapse;font-size:13px}.rp-t td{padding:4px 4px;border-top:1px solid #eef1f4}.rp-t td:nth-child(2){white-space:nowrap}.rp-t small{color:#5a6573}
+.rp-t tr.lv2 td:first-child{color:#1f7a4b;font-weight:600}.rp-t tr.lv0 td:first-child{color:#b43a2e;font-weight:600}
+.rp-plan{margin:4px 0;padding-left:18px}.rp-plan li{margin:6px 0;font-size:13.5px}.rp-plan small{color:#5a6573}
+@media print{.rp{padding:0}.rp-pl{break-inside:avoid}}
 </style></head>
 <body><div id="app"></div>
 <script>/* qrcode-generator, Kazuhiko Arase, licence MIT */
@@ -117,6 +129,89 @@ function svInsights(x){const F=[],W=[];if(x.sg>=4){const h=x.hold/x.sg;if(h>=0.7
 function addSt(a,b){Object.keys(b).forEach(k=>a[k]=(a[k]||0)+b[k]);return a;}
 function padHw(L){L.hw=Array.from(L.hw||[]);while(L.hw.length<(L.pts||[]).length)L.hw.unshift('--');while(L.hw.length>(L.pts||[]).length)L.hw.pop();}
 function padSv(L){L.sv=Array.from(L.sv||[]);while(L.sv.length<(L.pts||[]).length)L.sv.unshift('-');}
+/* ================= ANALYSE DE MATCH ET PLAN D'ENTRAÎNEMENT ================= */
+/* Repères indicatifs par catégorie (compétition jeunes) : objectif. Les plus jeunes servent moins fort,
+   passent davantage de 1res balles mais tiennent moins leur service : les breaks sont plus fréquents. */
+const REP_GRP={u12:'11-12 ans',f14:'13-14 ans Filles',g14:'13-14 ans Garçons',f18:'15-18 ans Filles',g18:'15-18 ans Garçons'};
+const REP_LAB={s1:'1re balle réussie',s1w:'Points gagnés derrière la 1re balle',s2w:'Points gagnés sur 2e balle',hold:'Jeux de service gagnés',r1w:'Retour de 1re balle : points gagnés',r2w:'Retour de 2e balle : points gagnés',brk:'Breaks (jeux de retour gagnés)',bps:'Balles de break sauvées',bpw:'Balles de break converties',dec:'Points décisifs gagnés (No Ad)',tb:'Points gagnés en jeu décisif',df:'Doubles fautes par jeu de service (maximum)',wue:'Rapport winners / fautes directes (minimum)'};
+const REP_DEF={
+ u12:{s1:.65,s1w:.55,s2w:.45,hold:.58,r1w:.40,r2w:.52,brk:.42,bps:.45,bpw:.45,dec:.50,tb:.50,df:.5,wue:.5},
+ f14:{s1:.63,s1w:.57,s2w:.45,hold:.58,r1w:.40,r2w:.52,brk:.40,bps:.48,bpw:.43,dec:.50,tb:.50,df:.45,wue:.6},
+ g14:{s1:.60,s1w:.60,s2w:.46,hold:.64,r1w:.37,r2w:.50,brk:.34,bps:.52,bpw:.42,dec:.50,tb:.50,df:.4,wue:.7},
+ f18:{s1:.62,s1w:.60,s2w:.46,hold:.63,r1w:.38,r2w:.52,brk:.37,bps:.53,bpw:.42,dec:.50,tb:.50,df:.35,wue:.8},
+ g18:{s1:.60,s1w:.66,s2w:.48,hold:.72,r1w:.32,r2w:.48,brk:.28,bps:.58,bpw:.40,dec:.50,tb:.50,df:.3,wue:.9}};
+const REP_TOL={s1:.07,s1w:.08,s2w:.08,hold:.12,r1w:.07,r2w:.08,brk:.12,bps:.12,bpw:.12,dec:.12,tb:.10};
+const repGroup=cid=>/^u12/.test(String(cid||''))?'u12':(['f14','g14','f18','g18'].includes(String(cid||'').slice(0,3))?String(cid).slice(0,3):'g14');
+function repFor(cid){const g=repGroup(cid),o=(typeof S!=='undefined'&&S&&S.cfg&&S.cfg.rep&&S.cfg.rep[g])||{},t=Object.assign({},REP_DEF[g],o),R0={};
+  Object.keys(REP_TOL).forEach(k=>R0[k]=[+t[k],REP_TOL[k]]);R0.df=+t.df;R0.wue=+t.wue;R0.grp=REP_GRP[g];return R0;}
+let REP=repFor('g14');
+const PLAN={
+ s1:['1re balle peu régulière','Séries de 20 premières balles sur cible (zone T et zone extérieure), routine fixe avant chaque service, privilégier un placement à 70 % de puissance plutôt que la vitesse.'],
+ s1w:['1re balle peu rentable','Travailler le « service + 1 » : enchaîner service puis coup droit d\'attaque sur la balle suivante, varier les zones (T, corps, extérieur) pour empêcher le relanceur de s\'installer.'],
+ s2w:['2e balle vulnérable','2e balle avec effet (lift / kické) et profondeur : 3 séries de 15 deuxièmes balles en visant la moitié arrière du carré, puis jeu de points en ne servant que des 2es balles.'],
+ hold:['Jeux de service difficiles à tenir','Jeux à thème « je sers, je dois gagner le jeu », départ à 15-30 ou 30-40 ; travailler les schémas service + coup droit et la gestion des points importants au service.'],
+ df:['Trop de doubles fautes','Stabiliser le geste de 2e balle (lancer, effet, marge au-dessus du filet) ; exercice « 10 deuxièmes balles d\'affilée sans faute » avant chaque séance.'],
+ r1w:['Retour de 1re balle passif','Retour bloqué / raccourci sur services rapides, placement plus reculé et appuis dynamiques (split-step) ; viser le centre profond pour neutraliser.'],
+ r2w:['Pas assez agressif sur la 2e balle adverse','Avancer dans le terrain sur 2e balle, prendre la balle tôt et attaquer le côté faible ; exercice de retours de 2e balle avec objectif de gagner le point en 3 frappes.'],
+ brk:['Peu de breaks','Jeux à thème en position de relanceur, départ à 0-15 ou 15-30 ; travailler la construction du point au retour et la patience dans l\'échange.'],
+ bps:['Balles de break mal défendues','Simulation de points à enjeu (30-40, avantage dehors) : routine de respiration, 1re balle de sécurité, schéma de jeu simple et maîtrisé.'],
+ bpw:['Balles de break peu converties','Points à enjeu en relanceur (40-30, avantage) : choisir un plan clair (retour profond centre puis attaque), limiter la prise de risque inutile.'],
+ dec:['Points décisifs (No Ad) perdus','Entraîner le point décisif : 10 points décisifs par séance, au service et en retour, avec une routine et un schéma de jeu préparés à l\'avance.'],
+ tb:['Jeux décisifs difficiles','Tie-breaks et super tie-breaks d\'entraînement en fin de séance (fatigue), concentration point par point, éviter les fautes directes sur les deux premiers points.'],
+ ue:['Trop de fautes directes','Régularité : séries d\'échanges en croisé avec objectif de 10 frappes, marge au-dessus du filet (1 m) et à l\'intérieur des lignes (1 m) ; choisir le bon moment pour accélérer.'],
+ ueX:['Fautes directes concentrées sur un coup','Travail technique et de régularité spécifique au coup concerné : paniers de balles puis échanges ciblés, en privilégiant la marge et le placement avant la vitesse.']
+};
+function repLevel(v,key){const r=REP[key];if(!r||v===null)return null;return v>=r[0]+r[1]?2:v<=r[0]-r[1]?0:1;}
+function repRuns(L){let best=[0,0],cur=0,who=0;(L.pts||[]).forEach((p,i)=>{if(i<(+L.base||0))return;if(p===who)cur++;else{who=p;cur=1;}if(cur>best[p-1])best[p-1]=cur;});return best;}
+function repMomentum(L,names){const k=+L.base||0,P=(L.pts||[]).slice(k);if(P.length<4)return '';let v=0,mx=1;const pts=[[0,0]];P.forEach((p,i)=>{v+=p===1?1:-1;mx=Math.max(mx,Math.abs(v));pts.push([i+1,v]);});
+  const W=640,H=170,X=i=>8+(W-16)*i/P.length,Y=y=>H/2-(H/2-14)*y/mx;
+  const marks=[];let sets=0;const Lr={pts:[],srv:L.srv,noad:L.noad,tb:L.tb,stb:L.stb,one:L.one};(L.pts||[]).forEach((p,i)=>{Lr.pts.push(p);if(i>=k){const R=replay(Lr);if(R.sets.length>sets){sets=R.sets.length;marks.push(i-k+1);}}});
+  return `<div class="rp-mo"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Évolution de l'écart de points pendant le match">
+   <rect x="0" y="0" width="${W}" height="${H/2}" fill="rgba(31,122,75,.07)"/><rect x="0" y="${H/2}" width="${W}" height="${H/2}" fill="rgba(180,58,46,.07)"/>
+   <line x1="0" y1="${H/2}" x2="${W}" y2="${H/2}" stroke="#9aa6b2" stroke-dasharray="4 4"/>
+   ${marks.map(m=>`<line x1="${X(m)}" y1="6" x2="${X(m)}" y2="${H-6}" stroke="#1d4e89" stroke-width="1" stroke-dasharray="2 3"/><text x="${X(m)-3}" y="14" font-size="10" text-anchor="end" fill="#1d4e89">fin set</text>`).join('')}
+   <polyline fill="none" stroke="#1d4e89" stroke-width="2.4" points="${pts.map(([i,y])=>X(i).toFixed(1)+','+Y(y).toFixed(1)).join(' ')}"/>
+   <text x="10" y="${H/2-6}" font-size="11" fill="#1f7a4b">▲ ${names[0]}</text><text x="10" y="${H/2+16}" font-size="11" fill="#b43a2e">▼ ${names[1]}</text></svg>
+   <p class="rp-n">Écart de points cumulé, point après point : la courbe monte quand ${names[0]} gagne le point, descend quand ${names[1]} le gagne.</p></div>`;}
+function matchReport(o){REP=repFor(o.cat);const L=o.L,st=serveStats(Object.assign({base:0},L,{base:+L.base||0})),R=replay(L),k=+L.base||0;const pw=[0,0];(L.pts||[]).forEach((p,i)=>{if(i>=k)pw[p-1]++;});
+  const tot=pw[0]+pw[1];if(tot<6)return `<div class="rp"><p>Pas assez de points enregistrés pour une analyse (${tot} points).</p></div>`;
+  const runs=repRuns(L),N=[o.A,o.B],short=N.map(x=>String(x.name||x.team||'?').split(' / ')[0].split(' ')[0]);
+  const rt=(a,b,min)=>b>=(min||1)?a/b:null,pc=v=>v===null?'–':Math.round(100*v)+' %';
+  const metrics=x=>[
+   {g:'Service',k:'s1',l:'1re balle réussie',v:rt(x.s1in,x.s1n,8),d:`${x.s1in}/${x.s1n}`},
+   {g:'Service',k:'s1w',l:'Points gagnés derrière la 1re balle',v:rt(x.s1w,x.s1in,6),d:`${x.s1w}/${x.s1in}`},
+   {g:'Service',k:'s2w',l:'Points gagnés sur 2e balle',v:rt(x.s2w,x.s2n,5),d:`${x.s2w}/${x.s2n}`},
+   {g:'Service',k:'hold',l:'Jeux de service gagnés',v:rt(x.hold,x.sg,3),d:`${x.hold}/${x.sg}`},
+   {g:'Retour',k:'r1w',l:'Points gagnés en retour de 1re balle',v:rt(x.r1w,x.r1n,6),d:`${x.r1w}/${x.r1n}`},
+   {g:'Retour',k:'r2w',l:'Points gagnés en retour de 2e balle',v:rt(x.r2w,x.r2n,5),d:`${x.r2w}/${x.r2n}`},
+   {g:'Retour',k:'brk',l:'Jeux de retour gagnés (breaks)',v:rt(x.brk,x.rg,3),d:`${x.brk}/${x.rg}`},
+   {g:'Moments clés',k:'bps',l:'Balles de break sauvées',v:rt(x.bps,x.bpf,2),d:`${x.bps}/${x.bpf}`},
+   {g:'Moments clés',k:'bpw',l:'Balles de break converties',v:rt(x.bpw,x.bpc,2),d:`${x.bpw}/${x.bpc}`},
+   {g:'Moments clés',k:'dec',l:'Points décisifs gagnés (No Ad)',v:rt(x.dsw+x.drw,x.dsp+x.drp,2),d:`${x.dsw+x.drw}/${x.dsp+x.drp}`},
+   {g:'Moments clés',k:'tb',l:'Points gagnés en jeu décisif',v:rt(x.tbw,x.tbp,6),d:`${x.tbw}/${x.tbp}`}];
+  const player=(x,sd)=>{const M=metrics(x).filter(m=>m.v!==null),F=[],W=[];M.forEach(m=>{const lv=repLevel(m.v,m.k);m.lv=lv;if(lv===2)F.push(m);if(lv===0)W.push(Object.assign({gap:REP[m.k][0]-m.v},m));});
+    const sg=Math.max(1,x.sg);if(x.s1n>=8&&x.df/sg>=REP.df)W.push({k:'df',l:'Doubles fautes',d:`${x.df} (${(x.df/sg).toFixed(1).replace('.',',')} par jeu de service)`,gap:x.df/sg});
+    if(x.det>=15){const r=x.ue?x.win/x.ue:x.win?9:1;if(x.win+x.ue>=6&&r<REP.wue)W.push({k:'ue',l:'Rapport winners / fautes directes',d:`${x.win} winners pour ${x.ue} fautes directes`,gap:REP.wue-r});
+      if(x.win+x.ue>=6&&r>=REP.wue+0.5)F.push({k:'wue',l:'Rapport winners / fautes directes',d:`${x.win} winners pour ${x.ue} fautes directes`});
+      const best=Object.keys(STK).map(c=>[c,x['w'+c]||0]).sort((a,b)=>b[1]-a[1])[0];if(best[1]>=3&&best[1]>=0.4*x.win)F.push({k:'arme',l:'Arme principale : '+STK[best[0]].toLowerCase(),d:`${best[1]} winners sur ${x.win}`});
+      const bad=Object.keys(STK).map(c=>[c,x['u'+c]||0]).sort((a,b)=>b[1]-a[1])[0];if(bad[1]>=3&&bad[1]>=0.4*x.ue)W.push({k:'ueX',l:'Fautes directes en '+STK[bad[0]].toLowerCase(),d:`${bad[1]} fautes sur ${x.ue}`,gap:0.3,stk:STK[bad[0]].toLowerCase()});}
+    W.sort((a,b)=>b.gap-a.gap);
+    const groups=['Service','Retour','Moments clés'].map(g=>{const L2=M.filter(m=>m.g===g);if(!L2.length)return '';return `<h5>${g}</h5><table class="rp-t">${L2.map(m=>`<tr class="lv${m.lv}"><td>${m.l}</td><td><b>${pc(m.v)}</b> <small>${m.d}</small></td><td><small>repère ${Math.round(100*REP[m.k][0])} %</small></td><td>${m.lv===2?'💪':m.lv===0?'⚠️':'✓'}</td></tr>`).join('')}</table>`;}).join('');
+    const game=x.det?`<h5>Jeu</h5><table class="rp-t"><tr><td>Winners</td><td><b>${x.win}</b> <small>${Object.keys(STK).filter(c=>x['w'+c]).map(c=>STK[c]+' '+x['w'+c]).join(', ')}</small></td></tr><tr><td>Fautes directes</td><td><b>${x.ue}</b> <small>${Object.keys(STK).filter(c=>x['u'+c]).map(c=>STK[c]+' '+x['u'+c]).join(', ')}</small></td></tr><tr><td>Fautes provoquées subies</td><td><b>${x.fe}</b></td></tr></table>`:'';
+    const plan=W.slice(0,4).map((w,i)=>{const P2=PLAN[w.k]||['',''];return `<li><b>Priorité ${i+1} · ${P2[0]||w.l}</b> <small>(${w.d})</small><br>${P2[1]}${w.stk?' Coup concerné : <b>'+w.stk+'</b>.':''}</li>`;}).join('');
+    const keep=F.slice(0,3).map(f=>`<li><b>${f.l}</b> <small>(${f.d})</small> : point fort à entretenir et à utiliser comme schéma de jeu prioritaire en match.</li>`).join('');
+    return `<div class="rp-pl"><h4>${N[sd].name} <small>${N[sd].team||''}</small></h4>
+     <div class="rp-sum"><span>💪 ${F.length} point${F.length>1?'s':''} fort${F.length>1?'s':''}</span><span>⚠️ ${W.length} axe${W.length>1?'s':''} de travail</span><span>Série max : ${runs[sd]} points d'affilée</span></div>
+     ${groups}${game}
+     <h5>🎯 Plan d'entraînement</h5>${plan?`<ol class="rp-plan">${plan}</ol>`:'<p class="rp-n">Aucune faiblesse nette sur les critères mesurés dans ce match.</p>'}
+     ${keep?`<h5>💪 À entretenir</h5><ul class="rp-plan">${keep}</ul>`:''}</div>`;};
+  const svc=st[1].s1n+st[2].s1n>0,det=st[1].det+st[2].det>0;
+  return `<div class="rp"><div class="rp-h"><h3>🧠 Analyse du match</h3><p>${o.title||''}</p><p class="rp-sc">${o.score||scoreStr(R)} ${R.w?'· vainqueur '+N[R.w-1].name:''}</p></div>
+   <div class="rp-k"><div><b>${pw[0]}</b><small>points gagnés par ${short[0]}</small></div><div><b>${tot}</b><small>points joués</small></div><div><b>${pw[1]}</b><small>points gagnés par ${short[1]}</small></div></div>
+   ${repMomentum(L,short)}
+   <div class="rp-cols">${player(st[1],0)}${player(st[2],1)}</div>
+   <p class="rp-n">Repères indicatifs de la catégorie <b>${REP.grp}</b>. 💪 = au-dessus du repère, ⚠️ = en dessous, ✓ = dans la norme. Les critères ne s'affichent qu'avec un nombre suffisant de points.${svc?'':' Les données de 1re / 2e balle n\'ont pas été notées pendant ce match.'}${det?'':' Le mode détaillé (winners / fautes) n\'a pas été utilisé : activez-le au prochain match pour une analyse du jeu.'}</p></div>`;}
+
 /* ================= CARNET DE MATCH ================= */
 const KEY='carnetFRMT26';
 const SCRIPT_URL='https://script.google.com/macros/s/AKfycbxkvs0R61_qcH4XODa7WoZpDs6G66wx-uchXYzcoEWnhnEeKVyLx63Dtkz25XJyyVYurw/exec';let CM=null;try{CM=JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){}
@@ -232,6 +327,7 @@ function renderEnd(){const M=CM.hist.find(x=>x.id===CM.view);if(!M){CM.scr='setu
   const dur=M.end&&M.t0?Math.round((M.end-M.t0)/60000):0;
   APP.innerHTML=`<header><h1>${R.w?'🏆 Match terminé':'⏹ Match arrêté'}</h1><p>${h(c?c.nom:'')} · ${h(M.lab)} · ${new Date(M.d).toLocaleDateString('fr-FR')}${dur?' · '+dur+' min':''}</p></header><main>
    <div class="res"><div class="${R.w===1?'win':''}">${h(sideName(M.A))}<small>${h(M.A.t)}</small></div><div class="sc">${h(M.sc||'')}${M.ab?`<small>abandon de ${h(sideName(M.ab===1?M.A:M.B))}</small>`:''}</div><div class="${R.w===2?'win':''}">${h(sideName(M.B))}<small>${h(M.B.t)}</small></div></div>
+   <button class="big" style="background:var(--court)" data-go="rep">🧠 Analyse et plan d'entraînement</button>
    <section><h2>Statistiques du match</h2><table class="stt"><thead><tr><th>${h(sideName(M.A).split(' ')[0])}</th><th></th><th>${h(sideName(M.B).split(' ')[0])}</th></tr></thead><tbody>${statRows(st)}</tbody></table>
     ${ins(st[1],sideName(M.A))}${ins(st[2],sideName(M.B))}</section>
    <section><h2>Envoyer à l'organisateur</h2><p class="note">L'organisateur colle le message dans l'appli du championnat (Partage &amp; PDF › Recevoir), ou scanne le QR code. ${M.m?'Le match sera rattaché à la rencontre choisie.':'Les statistiques iront dans la fiche des joueurs.'}</p>
@@ -240,7 +336,11 @@ function renderEnd(){const M=CM.hist.find(x=>x.id===CM.view);if(!M){CM.scr='setu
 function renderHist(){APP.innerHTML=`<header><h1>📚 Matchs enregistrés</h1><p>Sur ce téléphone uniquement.</p></header><main>
   ${CM.hist.length?CM.hist.map(M=>`<div class="hi" data-view="${M.id}"><b>${h(sideName(M.A))} – ${h(sideName(M.B))}</b><span>${h(M.sc||'')}</span><small>${h((CAT(M.c)||{}).nom||'')} · ${h(M.lab)} · ${new Date(M.d).toLocaleDateString('fr-FR')}</small><button data-del="${M.id}" aria-label="Supprimer">🗑</button></div>`).join(''):'<p class="note">Aucun match enregistré.</p>'}
   <div class="acts"><button class="big" data-go="new">➕ Nouveau match</button></div></main>`;}
-function render(){if(CM.scr==='match'&&CM.cur)renderMatch();else if(CM.scr==='end')renderEnd();else if(CM.scr==='hist')renderHist();else renderSetup();}
+function renderRep(){const M=CM.hist.find(x=>x.id===CM.view);if(!M){CM.scr='setup';return render();}const c=CAT(M.c);
+  APP.innerHTML=`<header><h1>🧠 Analyse du match</h1><p>${h(sideName(M.A))} – ${h(sideName(M.B))}</p></header><main>
+   ${matchReport({cat:M.c,L:M.L,A:{name:h(sideNameC(M.A)),team:h(M.A.t)},B:{name:h(sideNameC(M.B)),team:h(M.B.t)},title:h((c?c.nom:'')+' · '+M.lab+' · '+new Date(M.d).toLocaleDateString('fr-FR')),score:h(M.sc||'')})}
+   <div class="acts" style="margin-top:12px"><button class="big" data-go="print">📄 Imprimer / enregistrer en PDF</button><button data-go="send">📤 Envoyer le match à l'organisateur</button><button data-go="back">← Statistiques</button></div></main>`;}
+function render(){if(CM.scr==='match'&&CM.cur)renderMatch();else if(CM.scr==='rep')renderRep();else if(CM.scr==='end')renderEnd();else if(CM.scr==='hist')renderHist();else renderSetup();}
 
 /* ---------- partage ---------- */
 async function send(M){const code=codeOf(M),txt=`📒 Carnet de match · ${(CAT(M.c)||{}).nom||''} · ${M.lab}\n${sideName(M.A)} (${M.A.t||'—'}) – ${sideName(M.B)} (${M.B.t||'—'}) : ${M.sc}\n\nPour l'organisateur : collez ce message dans l'appli du championnat (Partage & PDF › Recevoir).\n${code}`;
@@ -259,6 +359,7 @@ APP.addEventListener('change',e=>{const t=e.target,k=t.dataset.f;if(!k)return;co
 APP.addEventListener('click',e=>{const t=e.target;
   const g=t.closest('[data-go]');if(g){const a=g.dataset.go,M=CM.hist.find(x=>x.id===CM.view);
     if(a==='start')return startMatch();if(a==='hist'){CM.scr='hist';save();return render();}if(a==='new'){CM.scr='setup';save();return render();}
+    if(a==='rep'){CM.scr='rep';save();window.scrollTo(0,0);return render();}if(a==='back'){CM.scr='end';save();return render();}
     if(a==='send'&&M)return send(M);if(a==='qr'&&M)return showQR(M);if(a==='copy'&&M)return copy(codeOf(M));if(a==='print')return window.print();return;}
   const d=t.closest('[data-dbl]');if(d){CM.f.dbl=d.dataset.dbl==='1';CM.f.a2=CM.f.b2='';save();return renderSetup();}
   const s=t.closest('[data-srv]');if(s){CM.f.srv=+s.dataset.srv;save();return renderSetup();}
