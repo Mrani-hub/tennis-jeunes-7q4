@@ -1067,7 +1067,7 @@ function standings(cat,pl){
 function finals(cat){if(cat.type!=='2P')return null;
   const A=standings(cat,'A'),B=standings(cat,'B');
   const slot=(st,k,l)=>({l,t:st.complete?st.rows[k].t:null,prov:st.done?st.rows[k].t:null});
-  const mk=(sfx,a,b,tag)=>({id:cat.id+'-'+sfx,cat,poule:sfx,tag,t1:a.t,t2:b.t,l1:a.l,l2:b.l,p1:a.prov,p2:b.prov});
+  const mk=(sfx,a,b,tag)=>{const o={id:cat.id+'-'+sfx,cat,poule:sfx,tag,t1:a.t,t2:b.t,l1:a.l,l2:b.l,p1:a.prov,p2:b.prov};const d=finDayOf(cat,o);if(d){o.date=d;o.lieu=S.fin[cat.id]?finLieu(cat):'Lieu à confirmer';}return o;};
   const win=m=>{if(!m.t1||!m.t2)return null;const e=ev(m.id);return e.done?(e.w===1?m.t1:m.t2):null;};
   const sf1=mk('SF1',slot(A,0,'A1'),slot(B,1,'B2'),'Demi-finale 1'),sf2=mk('SF2',slot(A,1,'A2'),slot(B,0,'B1'),'Demi-finale 2');
   const f=mk('F',{l:'Vainq. DF1',t:win(sf1)},{l:'Vainq. DF2',t:win(sf2)},'Finale');
@@ -1110,7 +1110,7 @@ function chipsHTML(){return `<div class="cats">${GROUPS.map(([g,ids])=>`<div cla
 const allVenues=()=>[...new Set(CATS.flatMap(c=>c.matches.map(m=>venueName(m.lieu))))].filter(Boolean).sort();
 function todayISO(){const n=tzShift(Date.now());return n.toISOString().slice(0,10);}
 function arbItems(v){const L=[];CATS.forEach(c=>{c.matches.forEach(m=>{if(!v||venueName(m.lieu)===v)L.push({m,c,lieu:m.lieu});});
-    if(c.type==='2P'){const F=finals(c);[F.sf1,F.sf2,F.f].forEach(m=>{if(m.t1&&m.t2)L.push({m,c,lieu:finLieu(c)});});}});
+    if(c.type==='2P'){const F=finals(c);[F.sf1,F.sf2,F.f].forEach(m=>{const fv=finVenueOf(c);if(m.t1&&m.t2&&(!v||!fv||fv===v))L.push({m,c,lieu:m.date?m.lieu:finLieu(c)});});}});
   const t=todayISO();
   L.forEach(x=>{const id=x.m.id,e=ev(id),live=PLid(id).some((_,i)=>isActive(S.live[id+'#'+i]));x.e=e;
     x.st=isValid(id)?'valid':e.done?'toval':(live||e.any)?'cours':(x.m.date&&DAYISO[x.m.date]<=t)?'saisir':'avenir';});
@@ -1149,7 +1149,7 @@ function renderCat(){const c=CATMAP[S.cat];
   <h3>${c.type==='2P'?'Tableau final':'Podium'}</h3><div id="bracket"></div>`;
   const dates=[...new Set(c.matches.map(m=>m.date))];
   dates.forEach(d=>{html+=`<h3>${DLONG[d]}</h3><div class="mlist">${c.matches.filter(m=>m.date===d).map(m=>card(m,c.type==='2P'?'Poule '+m.poule:'Poule unique',m.lieu)).join('')}</div>`;});
-  if(c.type==='2P')html+=`<h3>Phase finale</h3><div class="fin-info"><label for="fininfo">Date et lieu</label><input id="fininfo"${canAdmin()?'':' disabled title="Réservé à l\'organisateur"'} data-fin="${c.id}" placeholder="À renseigner (ex. 3 oct., RTCMO, 10h00)" value="${h(S.fin[c.id]||'')}"></div><div id="finals"></div>`;
+  if(c.type==='2P')html+=`<h3>Phase finale</h3><div class="fin-info"><label for="fininfo">Date et lieu</label><input id="fininfo"${canAdmin()?'':' disabled title="Réservé à l\'organisateur"'} data-fin="${c.id}" placeholder="À renseigner (ex. 3 oct., RTCMO, 10h00)" value="${h(S.fin[c.id]||'')}"></div><p class="legend" style="margin:4px 0 8px">Indiquez la date, le lieu et l'heure, par exemple « 3 oct., RTCMO, 10h00 » (ou « 3 et 4 oct., RTCMO » : demi-finales le 3, finale le 4). Ces informations alimentent le calendrier et « Mon club ». Chaque rencontre peut aussi avoir sa propre date, choisie dans sa carte.</p><div id="finals"></div>`;
   html+=`<h3>Distinctions</h3><div id="awards"></div>`;
   html+=`<h3>Bilan des joueurs</h3><p class="legend" style="margin-top:-4px">Noms, âges et numérotation des joueurs : onglet <button class="linkb" data-gotab="champ">Championnat</button>.</p><div id="pstats"></div>`;
   main.innerHTML=html;lastSig='';refreshLive();renderFinalsCards();
@@ -1178,6 +1178,7 @@ function card(m,tag,when){const r=S.res[m.id]||{p:[],wo:''};const P=PLid(m.id);
   <div class="auth" data-auth></div>
   ${canEditM(m)?`<details><summary>Saisir le score</summary>
   ${canAdmin()?`<label class="hrow">🕒 Heure de la rencontre<input type="time" step="300" data-hour="${m.id}" value="${h(S.hours[m.id]||'')}"></label>`:''}
+  ${canAdmin()&&isFinalM(m)?fdtSelect(m):''}
   ${canJA(m)?`<label class="hrow">📋 Score officiel (points)<input data-gsc="${m.id}" value="${h(String(r.g||'').replace('.',','))}" placeholder="ex. 4,5-1,5 (vide = calcul par parties)" inputmode="decimal" autocomplete="off"></label>`:''}
   ${canHome(m)?`<label class="hrow">🏠 Équipe visitée<select data-home="${m.id}"><option value="">— non précisé —</option><option value="1"${homeOf(m.id)==='1'?' selected':''}>${h(m.t1)} (visitée) · ${h(m.t2)} (visiteuse)</option><option value="2"${homeOf(m.id)==='2'?' selected':''}>${h(m.t2)} (visitée) · ${h(m.t1)} (visiteuse)</option></select></label>`:''}
   ${orderIdx(m).map(i=>{const p=P[i];const nm=effN(m,i),pl=planned(m,i);const dbl=i>=XB?(extrasOf(m.id)[i-XB]||{}).t==='D':/double/i.test(p);
@@ -1252,10 +1253,10 @@ function refreshLive(){const c=CATMAP[S.cat];if(!document.getElementById('stand'
 
 let lastSig='';
 function renderFinalsCards(){const c=CATMAP[S.cat];if(c.type!=='2P')return;const F=finals(c);const box=document.getElementById('finals');if(!box)return;
-  const sig=[F.sf1,F.sf2,F.f].map(m=>m.t1+'|'+m.t2).join('/')+S.fmt;if(sig===lastSig)return;lastSig=sig;
-  const when=S.fin[c.id]||'Date à confirmer';
-  box.innerHTML=`<div class="mlist">${[F.sf1,F.sf2,F.f].map(m=>m.t1&&m.t2?card(m,m.tag,when)
-    :`<article class="mc wait"><div class="mc-h"><span class="tag">${m.tag}</span></div><p style="margin:8px 0 0">${m.l1} contre ${m.l2} : en attente ${m.poule==='F'?'des demi-finales':'de la fin des poules'}.</p></article>`).join('')}</div>`;
+  const sig=[F.sf1,F.sf2,F.f].map(m=>m.t1+'|'+m.t2).join('/')+S.fmt+'#'+[F.sf1,F.sf2,F.f].map(m=>(m.date||'')+(S.fin['fdt:'+m.id]||'')).join()+'#'+(S.fin[c.id]||'');if(sig===lastSig)return;lastSig=sig;
+  const whenF=m=>m.date?m.lieu:(S.fin[c.id]||'Date à confirmer');
+  box.innerHTML=`<div class="mlist">${[F.sf1,F.sf2,F.f].map(m=>m.t1&&m.t2?card(m,m.tag,whenF(m))
+    :`<article class="mc wait"><div class="mc-h"><span class="tag">${m.tag}</span></div><p style="margin:8px 0 0">${m.l1} contre ${m.l2} : en attente ${m.poule==='F'?'des demi-finales':'de la fin des poules'}.${m.date?` <b>${DLONG[m.date]}</b>${S.fin[c.id]&&finVenueOf(c)?' · '+h(finVenueOf(c)):''}`:''}</p>${canAdmin()?fdtSelect(m):''}</article>`).join('')}</div>`;
   [F.sf1,F.sf2,F.f].forEach(m=>updateCard(m.id));}
 
 /* ----- Programme ----- */
@@ -1266,16 +1267,15 @@ const DAYISO={'25/09':'2026-09-25','26/09':'2026-09-26','27/09':'2026-09-27','03
 const DSHORT={'25/09':'Ven. 25/09','26/09':'Sam. 26/09','27/09':'Dim. 27/09','03/10':'Sam. 03/10','04/10':'Dim. 04/10','F':'Phases finales'};
 const hourOf=l=>{const m=String(l||'').match(/(\d{1,2})h(\d{2})/);return m?m[1].padStart(2,'0')+'h'+m[2]:'';};
 const clubFilter=({m})=>!S.pClub||[m.t1,m.t2].some(t=>t&&base(t)===S.pClub);
-function calItems(date){const out=[];
-  CATS.forEach(c=>{if(date!=='F')c.matches.filter(m=>m.date===date).forEach(m=>out.push({m,c,lieu:m.lieu}));
-    else if(c.type==='2P'){const F=finals(c);[F.sf1,F.sf2,F.f].forEach(m=>out.push({m,c,lieu:finLieu(c)}));}});
-  return out.filter(clubFilter).filter(o=>!S.calLieu||venueName(o.lieu)===S.calLieu||!o.m.date);}
+function calRaw(date){const out=[];CATS.forEach(c=>{if(date!=='F')c.matches.filter(m=>m.date===date).forEach(m=>out.push({m,c,lieu:m.lieu}));
+    if(c.type==='2P'){const F=finals(c);[F.sf1,F.sf2,F.f].forEach(m=>{if(date==='F'?!m.date:m.date===date)out.push({m,c,lieu:m.date?m.lieu:finLieu(c),fin:true});});}});return out;}
+function calItems(date){return calRaw(date).filter(clubFilter).filter(o=>!S.calLieu||venueName(o.lieu)===S.calLieu||(o.fin&&!finVenueOf(o.c)));}
 function mState(m){if(!m.t1||!m.t2)return {k:'tbd',e:{}};const e=ev(m.id);
   const live=PLid(m.id).some((_,i)=>isActive(S.live[m.id+'#'+i]));return {k:live?'live':e.done?'done':e.any?'part':'todo',e};}
 const fmtH=v=>String(v||'').replace(':','h');
 function whenTxt(m,lieu){const t=S.hours[m.id];return t?fmtH(t):(hourOf(lieu)?'dès '+hourOf(lieu)+', heure à préciser':'heure à préciser');}
 function cardWhen(m,when){const t=S.hours[m.id];if(!m.date)return (when||'Date à confirmer')+(t?' · '+fmtH(t):'');
-  return venueName(when)+' · '+(t?'🕒 '+fmtH(t):'dès '+(hourOf(when)||'10h00'));}
+  return (isFinalM(m)?DLONG[m.date]+' · ':'')+venueName(when)+' · '+(t?'🕒 '+fmtH(t):(hourOf(when)?'dès '+hourOf(when):(isFinalM(m)?'heure à préciser':'dès 10h00')));}
 function setHour(id,v){if(v)S.hours[id]=v;else delete S.hours[id];S.hoursTs[id]=now();save();}
 const timeKey=(m,lieu)=>S.hours[m.id]||(hourOf(lieu)||'10h00').replace('h',':');
 function utcRange(date,lieu,time){const iso=DAYISO[date];if(!iso)return null;const hh=time?fmtH(time):(hourOf(lieu)||'10h00');const [H,M]=hh.split('h').map(Number);
@@ -1288,9 +1288,9 @@ function gcal(m,c,lieu){const r=utcRange(m.date,lieu,S.hours[m.id]);if(!r)return
 function downloadICS(){if(!S.myClub){toast('Choisissez d\'abord votre club');return;}
   const esc=t=>String(t).replace(/([,;\\])/g,'\\$1').replace(/\n/g,'\\n');const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
   const L=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//FRMT26//Championnat jeunes//FR','CALSCALE:GREGORIAN','METHOD:PUBLISH','X-WR-CALNAME:'+esc('Championnat jeunes · '+S.myClub)];let n=0;
-  CATS.forEach(c=>c.matches.forEach(m=>{if(!(isMine(m.t1)||isMine(m.t2)))return;const r=utcRange(m.date,m.lieu,S.hours[m.id]);if(!r)return;n++;
+  CATS.forEach(c=>[...c.matches].concat(c.type==='2P'?(f=>[f.sf1,f.sf2,f.f])(finals(c)):[]).forEach(m=>{if(!(isMine(m.t1)||isMine(m.t2)))return;const r=utcRange(m.date,m.lieu,S.hours[m.id]);if(!r)return;n++;
     L.push('BEGIN:VEVENT','UID:'+m.id+'@frmt26-jeunes','DTSTAMP:'+stamp,'DTSTART:'+r[0],'DTEND:'+r[1],'SUMMARY:'+esc(evTitle(m,c)),'LOCATION:'+esc(venueName(m.lieu)),
-      'DESCRIPTION:'+esc(`${catLabel(c)}${c.type==='2P'?', poule '+m.poule:''} · Championnat du Maroc par équipes des jeunes 2025/2026`),
+      'DESCRIPTION:'+esc(`${catLabel(c)}${isFinalM(m)?', '+m.tag:c.type==='2P'?', poule '+m.poule:''} · Championnat du Maroc par équipes des jeunes 2025/2026`),
       'BEGIN:VALARM','TRIGGER:-PT12H','ACTION:DISPLAY','DESCRIPTION:'+esc('Rencontre demain : '+m.t1+' – '+m.t2),'END:VALARM','END:VEVENT');}));
   L.push('END:VCALENDAR');const blob=new Blob([L.join('\r\n')],{type:'text/calendar;charset=utf-8'});const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);a.download='calendrier_'+S.myClub.replace(/\W+/g,'_')+'.ics';document.body.appendChild(a);a.click();a.remove();toast(`${n} rencontres exportées vers l'agenda`);}
@@ -1307,7 +1307,7 @@ function agEdit({m,c,lieu}){const mine=isMine(m.t1)||isMine(m.t2);
 function calStrip(){const days=[];for(let k=0;k<14;k++)days.push(new Date(2026,8,21+k));
   const key=d=>String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');const tk=(()=>{const n=tzShift(Date.now());return String(n.getUTCDate()).padStart(2,'0')+'/'+String(n.getUTCMonth()+1).padStart(2,'0');})();
   const cell=d=>{const k=key(d);if(!DATES.includes(k))return `<div class="dc${k===tk?' today':''}"><b>${d.getDate()}</b></div>`;
-    const it=calItems(k),mine=S.myClub&&CATS.some(c=>c.matches.some(m=>m.date===k&&(isMine(m.t1)||isMine(m.t2))));const lv=it.some(x=>mState(x.m).k==='live');
+    const it=calItems(k),mine=S.myClub&&calRaw(k).some(({m})=>isMine(m.t1)||isMine(m.t2));const lv=it.some(x=>mState(x.m).k==='live');
     return `<button class="dc md${S.pDate===k&&S.calMode==='day'?' on':''}${k===tk?' today':''}${lv?' lv':''}" data-pdate="${k}"><b>${d.getDate()}</b><small>${lv?'● Live':it.length+' renc.'}</small>${mine?'<small class="st">★</small>':''}</button>`;};
   return `<div class="strip"><div class="strip-h">Septembre – octobre 2026<small>${S.pClub?'filtre : '+h(S.pClub):'tous les clubs'}</small></div>
    <div class="wk">${['L','M','M','J','V','S','D'].map(x=>`<div class="dn">${x}</div>`).join('')}${days.map(cell).join('')}</div>
@@ -1315,7 +1315,7 @@ function calStrip(){const days=[];for(let k=0;k<14;k++)days.push(new Date(2026,8
 function calDay(){const date=S.pDate,it=calItems(date);const venues=new Set(it.map(x=>venueName(x.lieu)));
   const mineN=S.myClub?it.filter(({m})=>isMine(m.t1)||isMine(m.t2)).length:0,done=it.filter(x=>mState(x.m).k==='done').length;
   let x=`<div class="dayh"><h2>${date==='F'?'Phases finales':DLONG[date]+' 2026'}</h2><span>${it.length} rencontre${it.length>1?'s':''} · ${venues.size} lieu${venues.size>1?'x':''}${done?` · ${done} terminée${done>1?'s':''}`:''}${mineN&&!S.pClub?` · ★ ${mineN} pour ${h(S.myClub)}`:''}</span></div>`;
-  if(!it.length)return x+`<div class="empty">Aucune rencontre ${S.pClub?'pour '+h(S.pClub)+' ':''}ce jour-là.</div>`;
+  if(!it.length)return x+`<div class="empty">${date==='F'?'Aucune phase finale sans date : celles qui ont une date figurent dans leur journée (3 et 4 octobre).':'Aucune rencontre '+(S.pClub?'pour '+h(S.pClub)+' ':'')+'ce jour-là.'}</div>`;
   if(S.calEdit&&canAdmin()&&date!=='F')x+=`<div class="bk" style="margin:0 0 6px"><span><b>Mode horaires</b> : choisissez l'heure de chaque rencontre. Elle est enregistrée aussitôt et partagée avec les autres appareils. Sans heure, la rencontre reste affichée « dès » l'heure de début du lieu.</span><button class="btn sm" data-caledit>Terminer</button></div>`;
   const groups={},lbl={};it.forEach(o=>{let g,l;
     if(date==='F'){g=l=venueName(o.lieu)||'À confirmer';}
@@ -1327,8 +1327,7 @@ function calDay(){const date=S.pDate,it=calItems(date);const venues=new Set(it.m
     x+=`<div class="hr">${h(lbl[g])}<small>${arr.length} rencontre${arr.length>1?'s':''}</small></div><div class="ags">${arr.map(agCard).join('')}</div>`;});
   return x;}
 function calGrid(){const cols=[...DATES,'F'];
-  const cellOf=(c,d)=>{let it=d!=='F'?c.matches.filter(m=>m.date===d).map(m=>({m,c,lieu:m.lieu})):(c.type==='2P'?(()=>{const F=finals(c);return [F.sf1,F.sf2,F.f].map(m=>({m,c,lieu:finLieu(c)}));})():[]);
-    it=it.filter(clubFilter).filter(o=>!S.calLieu||venueName(o.lieu)===S.calLieu||!o.m.date);if(!it.length)return `<td></td>`;const st=it.map(o=>mState(o.m).k),dn=st.filter(k=>k==='done').length,lv=st.includes('live');
+  const cellOf=(c,d)=>{let it=calRaw(d).filter(o=>o.c===c);it=it.filter(clubFilter).filter(o=>!S.calLieu||venueName(o.lieu)===S.calLieu||(o.fin&&!finVenueOf(o.c)));if(!it.length)return `<td></td>`;const st=it.map(o=>mState(o.m).k),dn=st.filter(k=>k==='done').length,lv=st.includes('live');
     const mine=S.myClub?it.filter(({m})=>isMine(m.t1)||isMine(m.t2)):[];const vn=[...new Set(it.map(o=>venueName(o.lieu)))].filter(Boolean).join(', ');
     const opp=mine.map(({m})=>isMine(m.t1)?m.t2||m.l2:m.t1||m.l1).join(', ');
     return `<td class="cc${dn===it.length?' full':''}${mine.length?' hasmine':''}" data-pdate="${d}"><b>${it.length} renc.</b>${h(vn||'lieu à confirmer')}${lv?'<br><span class="lvd">● Live</span>':dn?`<br>${dn}/${it.length} jouée${dn>1?'s':''}`:''}${mine.length?`<br><span class="mn">★ contre ${h(opp)}</span>`:''}</td>`;};
@@ -1369,11 +1368,11 @@ function renderClubs(){
 /* ----- Mon club ----- */
 function mineList(){const out=[];
   CATS.forEach(c=>{c.matches.forEach(m=>{if(isMine(m.t1)||isMine(m.t2))out.push({m,c,lieu:m.lieu,d:DATES.indexOf(m.date)});});
-    if(c.type==='2P'){const F=finals(c);[F.sf1,F.sf2,F.f].forEach(m=>{if(isMine(m.t1)||isMine(m.t2))out.push({m,c,lieu:S.fin[c.id]||'Date et lieu à confirmer',d:9});});}});
+    if(c.type==='2P'){const F=finals(c);[F.sf1,F.sf2,F.f].forEach(m=>{if(isMine(m.t1)||isMine(m.t2))out.push({m,c,lieu:m.date?m.lieu:finLieu(c),d:m.date?DATES.indexOf(m.date):9});});}});
   return out.sort((a,b)=>a.d-b.d||timeKey(a.m,a.lieu).localeCompare(timeKey(b.m,b.lieu))||a.lieu.localeCompare(b.lieu));}
 function renderVenue(){const v=S.sync.venue||'?';const L=[];
   CATS.forEach(c=>{c.matches.forEach(m=>{if(venueName(m.lieu)===v)L.push({m,c,lieu:m.lieu,d:DATES.indexOf(m.date)});});
-    if(c.type==='2P'){const F=finals(c);[F.sf1,F.sf2,F.f].forEach(m=>{if(m.t1&&m.t2)L.push({m,c,lieu:finLieu(c),d:9});});}});
+    if(c.type==='2P'){const F=finals(c);[F.sf1,F.sf2,F.f].forEach(m=>{{const fv=finVenueOf(c);if(m.t1&&m.t2&&(!fv||fv===v))L.push({m,c,lieu:m.date?m.lieu:finLieu(c),d:m.date?DATES.indexOf(m.date):9});}});}});
   L.sort((a,b)=>a.d-b.d||timeKey(a.m,a.lieu).localeCompare(timeKey(b.m,b.lieu)));
   const done=L.filter(x=>ev(x.m.id).done).length,val=L.filter(x=>isValid(x.m.id)).length;
   let html=`<div class="hero"><div class="nm"><small>Juge-arbitre</small><b>📍 ${h(v)}</b></div>
@@ -1872,7 +1871,7 @@ function renderMine(){if(syncReady()&&S.sync.role==='coach')return renderCoach()
     <div class="pick">${allClubs().map(k=>`<button class="btn" data-myclub="${h(k)}">${h(k)}</button>`).join('')}</div>`;return;}
   const k=clubStats()[S.myClub]||{J:0,V:0,D:0,pp:0,pc:0,teams:[]};const list=mineList();
   const next=list.find(x=>x.m.t1&&x.m.t2&&!ev(x.m.id).done);
-  const whenOf=x=>x.m.date?`${DLONG[x.m.date]}, ${venueName(x.lieu)} · ${whenTxt(x.m,x.lieu)}`:'Phase finale, '+x.lieu;
+  const whenOf=x=>x.m.date?`${isFinalM(x.m)?x.m.tag+' · ':''}${DLONG[x.m.date]}, ${venueName(x.lieu)} · ${whenTxt(x.m,x.lieu)}`:'Phase finale, '+x.lieu;
   let html=`<div class="hero"><div class="nm"><small>Mon club</small><b>${h(S.myClub)}</b></div>
     <div class="st"><span>${k.teams.length}<small>équipes</small></span><span>${k.V}<small>victoires</small></span><span>${k.D}<small>défaites</small></span><span>${k.pp}-${k.pc}<small>parties</small></span></div>
     <div class="actions" style="margin:0"><button class="btn sm wa" data-share="all||1">Partager ses résultats</button><button class="btn sm" data-calclub>📅 Calendrier</button><button class="btn sm" data-pdf="mine">PDF du club</button><button class="btn sm" data-myclub="">Changer de club</button></div></div>`;
@@ -1892,7 +1891,19 @@ function renderMine(){if(syncReady()&&S.sync.role==='coach')return renderCoach()
 /* ----- Partage WhatsApp ----- */
 const now=()=>Math.floor(Date.now()/1000);
 const venueName=l=>String(l||'').split(',')[0].trim();
-const finLieu=c=>S.fin[c.id]||'Date et lieu à confirmer';
+/* Phases finales : le texte « date, lieu, heure » saisi par l'organisateur (ex. « 3 oct., RTCMO, 10h00 ») est analysé ;
+   chaque rencontre peut aussi avoir sa propre date (clé « fdt:<id> »). */
+const finTextDays=t=>{const s0=String(t||''),out=[];const add=(d,mo)=>{const k=String(d).padStart(2,'0')+'/'+String(mo).padStart(2,'0');if(DATES.includes(k)&&!out.includes(k))out.push(k);};
+  const re=/\b(\d{1,2})(?:\s*(?:et|&|-|–|\/)\s*(\d{1,2}))?\s*(?:(oct\w*|sept\w*)|\/\s*(\d{1,2})\b)/gi;let m;
+  while((m=re.exec(s0))){const mo=m[3]?(/^oct/i.test(m[3])?10:9):+m[4];add(m[1],mo);if(m[2])add(m[2],mo);}return out;};
+const finVenueOf=c=>{const t=String(S.fin[c.id]||'').trim();if(!t)return '';const seg=t.split(/[,;·|\n]/).map(x=>x.trim()).filter(Boolean);
+  const isDate=x=>/\b\d{1,2}\s*(?:\/\s*\d{1,2}\b|oct|sept)/i.test(x)||/^(?:lun(?:di)?|mar(?:di)?|mer(?:credi)?|jeu(?:di)?|ven(?:dredi)?|sam(?:edi)?|dim(?:anche)?)\.?(?:\s+\d.*)?$/i.test(x);
+  const isHour=x=>/\b\d{1,2}\s*h\s*\d{0,2}\b/i.test(x)||/^\d{1,2}:\d{2}$/.test(x);
+  return seg.find(x=>!isDate(x)&&!isHour(x))||'';};
+const finLieu=c=>{const t=String(S.fin[c.id]||'').trim();if(!t)return 'Date et lieu à confirmer';const hr=hourOf(t);return (finVenueOf(c)||'Lieu à confirmer')+(hr?', '+hr:'');};
+const isFinalM=m=>!!m&&!!m.cat&&m.cat.type==='2P'&&/^(SF1|SF2|F)$/.test(String(m.poule||''));
+const fdtSelect=m=>`<label class="hrow">📅 Date de la rencontre<select data-fdt="${m.id}"><option value="">Selon le texte « date et lieu » de la catégorie</option>${['03/10','04/10'].map(d=>`<option value="${d}"${S.fin['fdt:'+m.id]===d?' selected':''}>${DLONG[d]}</option>`).join('')}<option value="-"${S.fin['fdt:'+m.id]==='-'?' selected':''}>À confirmer</option></select></label>`;
+const finDayOf=(c,m)=>{const v=S.fin['fdt:'+m.id];if(v==='-')return '';if(v&&DATES.includes(v))return v;const ds=finTextDays(S.fin[c.id]);if(!ds.length)return '';return m.poule==='F'?ds[ds.length-1]:ds[0];};
 const normN=n=>{const a=Array.from(n||[],x=>[String((x||[])[0]||'').trim(),String((x||[])[1]||'').trim()]);while(a.length&&!a[a.length-1][0]&&!a[a.length-1][1])a.pop();return a;};
 const normP=p=>{const a=(p||[]).map(x=>String(x||'').trim());while(a.length&&!a[a.length-1])a.pop();return a;};
 const enc=o=>btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g,'-').replace(/\//g,'.').replace(/=+$/,'');
@@ -1916,7 +1927,7 @@ function buildShare(date,lieu,mine){const items=shareItems(date,lieu,mine);if(!i
         else{const d=normP(r.p).filter(Boolean);if(d.length)l+='\n   '+d.join(' / ');}}
       return l;}).join('\n');}).join('\n\n');
   const ro={},rt={};items.forEach(({m,c})=>[m.t1,m.t2].forEach(t=>{const L=roster(c,t);if(L.some(x=>String(x||'').trim())){ro[rkey(c,t)]=Array.from(L,x=>String(x||'').trim());if(rtags(c,t).some(Boolean))rt[rkey(c,t)]=Array.from(rtags(c,t),x=>x||'');}}));
-  const fin={};items.forEach(({m,c})=>{if(!m.date&&S.fin[c.id])fin[c.id]=S.fin[c.id];});
+  const fin={};items.forEach(({m,c})=>{if(isFinalM(m)){if(S.fin[c.id])fin[c.id]=S.fin[c.id];const kk='fdt:'+m.id;if(S.fin[kk])fin[kk]=S.fin[kk];}});
   const hr={};items.forEach(({m})=>{if(S.hoursTs[m.id])hr[m.id]=[S.hours[m.id]||'',S.hoursTs[m.id]];});
   const code=enc({v:1,f:S.fmt,hr,r:items.map(({m})=>[m.id,normP(S.res[m.id].p),S.res[m.id].wo||'',S.ts[m.id]||0,normN(S.res[m.id].n)]),fin,ro,rt});
   const text=`🎾 Championnat du Maroc par équipes des jeunes 2025/2026\n${sel.join(' · ')}\n\n${body}\n\n📲 Pour mettre à jour votre appli : copiez tout ce message, puis onglet Partage, Recevoir.\nFRMT26:${code}`;
@@ -1963,7 +1974,7 @@ function importText(txt,quiet){
       if(has&&(S.ts[id]||0)>(ts||0)){n.keep++;return;}
       has?n.maj++:n.nouv++;inc.pb=(cur&&cur.pb)||{};S.res[id]=inc;S.ts[id]=ts||0;changed.push(id);if(!quiet)markAll(id);
       const mm=getMatch(id);if(mm&&mm.t1&&mm.t2)inc.n=inc.n.map(x=>[legacyToIdx(mm.cat,mm.t1,x[0]),legacyToIdx(mm.cat,mm.t2,x[1])]);});
-    Object.entries(d.fin||{}).forEach(([k,v])=>{if(v&&CATMAP[k]&&!S.fin[k])S.fin[k]=v;});});
+    Object.entries(d.fin||{}).forEach(([k,v])=>{if(v&&(CATMAP[k]||/^fdt:/.test(k))&&!S.fin[k])S.fin[k]=v;});});
   save();return {n,changed,fmtDiff,players};}
 function lieuxFor(date){const set=new Set();CATS.forEach(c=>{
   if(date!=='F')c.matches.forEach(m=>{if(date==='all'||m.date===date)set.add(venueName(m.lieu));});
@@ -2249,7 +2260,7 @@ const syncReady=()=>!!(S.sync.url&&S.sync.key);
 const canEdit=()=>(!syncReady()||S.sync.role!=='joueur')&&(!syncReady()||S.sync.role!=='lecture');
 const canAdmin=()=>!syncReady()||S.sync.role==='admin';
 const ROLES={marqueur:'📲 Marqueur',coach:'🧢 Coach',joueur:'🎾 Joueur',admin:'🛠️ Organisateur',ja:'⚖️ Juge-arbitre',saisie:'✏️ Saisie des résultats',lecture:'👁 Consultation'};
-const mVenue=m=>m?(m.date?venueName(m.lieu):'*'):'';
+const mVenue=m=>m?(m.date?(/à confirmer/i.test(String(m.lieu||''))?'*':venueName(m.lieu)):'*'):'';
 const canJA=m=>!syncReady()||S.sync.role==='admin'||(S.sync.role==='ja'&&!!m&&(mVenue(m)==='*'||mVenue(m)===S.sync.venue));
 const isValid=id=>!!String((S.res[id]||{}).v||'').trim();
 const myM=m=>!!m&&(S.sync.role==='ja'?mVenue(m)===S.sync.venue:(isMine(m.t1)||isMine(m.t2)));
@@ -2314,6 +2325,7 @@ async function syncNow(manual){if(!syncReady()){if(manual)toast("Renseignez l'ad
       if(x.k==='cfg:need'){if((x.ts||0)>(S.finTs[x.k]||0)&&(+x.v===1||+x.v===2)){S.need=+x.v;S.fin[x.k]=x.v;S.finTs[x.k]=x.ts;rosterChanged=true;}if(S.finTs[x.k]===x.ts)S.sync.sentF[x.k]=x.ts;return;}
       if(x.k==='cfg:fmt'){if((x.ts||0)>(S.finTs[x.k]||0)&&FORMATS[+x.v]){S.fmt=+x.v;S.fin[x.k]=x.v;S.finTs[x.k]=x.ts;rosterChanged=true;}if(S.finTs[x.k]===x.ts)S.sync.sentF[x.k]=x.ts;return;}if(oldTs(x.ts,'hours'))return;if(typeof x.k==='string'&&x.k.slice(0,2)==='h:'){const id=x.k.slice(2);if(!getMatch(id))return;
         if((x.ts||0)>(S.hoursTs[id]||0)){if(x.v)S.hours[id]=x.v;else delete S.hours[id];S.hoursTs[id]=x.ts;rosterChanged=true;}if(S.hoursTs[id]===x.ts)S.sync.sentF[x.k]=x.ts;return;}
+      if(x&&/^fdt:/.test(String(x.k))){if((x.ts||0)>(S.finTs[x.k]||0)){S.fin[x.k]=x.v||'';S.finTs[x.k]=x.ts;rosterChanged=true;}if(S.finTs[x.k]===x.ts)S.sync.sentF[x.k]=x.ts;return;}
       if(!x||!CATMAP[x.k])return;if((x.ts||0)>(S.finTs[x.k]||0)){S.fin[x.k]=x.v||'';S.finTs[x.k]=x.ts;rosterChanged=true;}if(S.finTs[x.k]===x.ts)S.sync.sentF[x.k]=x.ts;});
     if(d.need&&+d.need!==+S.need&&S.sync.role!=='admin'){S.need=+d.need;rosterChanged=true;}
     (d.results||[]).forEach(rec=>{const id=Array.isArray(rec)?rec[0]:rec&&rec.id;if(applyRec(rec,sentU)&&!changed.includes(id))changed.push(id);});
@@ -2450,7 +2462,7 @@ function syncUI(){const b=document.getElementById('syncst');if(!b)return;if(!syn
   b.title=S.sync.err||'Synchroniser maintenant';}
 document.getElementById('syncst').addEventListener('click',()=>syncNow(true));
 document.getElementById('who').addEventListener('click',()=>{S.tab='data';save();render();window.scrollTo(0,0);});
-const APP_VERSION='2026-10-03 16:00';
+const APP_VERSION='2026-10-03 18:00';
 const DEFAULT_APP_URL='https://mrani-hub.github.io/tennis-jeunes-7q4/';
 const appUrl=()=>{const u=String(S.appUrl||'').trim();if(/^https:\/\//.test(u))return u.replace(/#.*$/,'');return /^https:$/.test(location.protocol)?location.origin+location.pathname:DEFAULT_APP_URL;};
 const inviteLink=code=>appUrl()?appUrl()+'#i='+code:'';
@@ -2743,6 +2755,7 @@ main.addEventListener('change',e=>{const t=e.target;
     const cur=String(r.p[+k]||'').trim();if(kind==='a'&&!cur&&!confirm('Aucun score en cours : l\'abandon sera enregistré comme 6-0 6-0. Continuer ?'))return;
     const sc=woScore(cur,pc,win,kind),who=win===1?m.t2:m.t1;if(!confirm(`${kind==='f'?'Forfait':'Abandon'} de ${who} : la partie sera enregistrée ${sc}. Confirmer ?`))return;
     r.p[+k]=sc;S.ts[id]=now();markDirty(id,String(k));stopLiveIfFinal(id,+k);save();render();toast(`${kind==='f'?'Forfait':'Abandon'} enregistré : ${sc}`);return;}
+  if(t.dataset.fdt){if(!canAdmin())return;const k='fdt:'+t.dataset.fdt;S.fin[k]=t.value;S.finTs[k]=now();lastSig='';save();render();toast(t.value==='-'?'Date à confirmer':t.value?'Date enregistrée : '+DLONG[t.value]:'Date selon le texte de la catégorie');return;}
   if(t.dataset.home){const id=t.dataset.home,m=getMatch(id);if(!m||!canHome(m))return;const r=S.res[id]=S.res[id]||{p:[],wo:'',n:[]};r.h=t.value;markDirty(id,'h');S.ts[id]=now();save();render();toast(t.value?'Équipe visitée : '+(t.value==='1'?m.t1:m.t2):'Équipe visitée effacée');return;}
   if(t.dataset.ptsg){if(!canAdmin())return;const [g,w]=t.dataset.ptsg.split('|');let v=String(t.value).replace(',','.').trim();v=v===''?(w==='d'?2:1):Math.round(Math.max(0,Math.min(10,+v||0))*2)/2;
     const cur=Object.assign({},(S.cfg||{}).pts);cur[g]=Object.assign({},cur[g],{[w]:v});S.cfg=Object.assign({},S.cfg,{pts:cur});
