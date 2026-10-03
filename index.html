@@ -629,6 +629,8 @@ body.marqm .wosel{display:inline-block}
 @media print{.rp{padding:0}.rp-pl{break-inside:avoid}}
 
 #print .rp-mo svg{max-height:160px}
+.plt tr[data-plf]:hover td{background:rgba(29,78,137,.06)}
+.plt td{white-space:nowrap}.plt td.w{white-space:normal;text-align:left}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -1352,11 +1354,46 @@ function clubStats(){const C={};
     ms.forEach(m=>{const e=ev(m.id);if(!e.done)return;const a=get(base(m.t1)),b=get(base(m.t2));a.J++;b.J++;
       if(e.draw){}else if(e.w===1){a.V++;b.D++;}else{b.V++;a.D++;}a.pp+=e.p1;a.pc+=e.p2;b.pp+=e.p2;b.pc+=e.p1;});});
   return C;}
+/* ================= JOUEURS : consultation par club et par catégorie ================= */
+function playerHist(c,t,me){const out=[];teamMatches(rkey(c,t)).forEach(m=>{const sd=m.t1===t?0:1,r=S.res[m.id]||{},x0=parts(c).length;
+  PLid(m.id).forEach((lab,i)=>{const nn=(r.n||[])[i]||['',''],v=String(nn[sd]||'');if(!v.split('/').includes(String(me)))return;const sc=String((r.p||[])[i]||'').trim();if(!sc)return;
+    const st=partie(sc,i===x0?1:2,i===x0),opp=sd?m.t1:m.t2,mate=v.includes('/')?v.split('/').filter(z=>z!==String(me)).map(z=>pname(c,t,+z)).join(''):'';
+    out.push({m,i,q:!!decQ((r.q||{})[i]),lab,opp,oppN:pnamesC(c,opp,nn[1-sd]),mate,sc,res:st&&st.w?(st.w===sd+1?'✅ gagnée':'❌ perdue'):'● en cours'});});});return out;}
+function allPlayers(){const out=[];CATS.forEach(c=>{const ps={};playerStats(c).forEach(o=>ps[o.t+'|'+o.k]=o);
+  teamsOf(c).forEach(t=>{const k=rkey(c,t),n=nbJ(c,t);for(let i=1;i<=n;i++){const nm=pname(c,t,i);if(!nm||/^Joueur \d/.test(nm))continue;
+    const o=ps[t+'|'+i]||{sv:0,sd:0,dv:0,dd:0,sw:0,sl:0,b:[]},V=o.sv+o.dv,D=o.sd+o.dd;
+    out.push({c,t,i,club:base(t),n:nm,tg:ptag(c,t,i),clt:cltOf(c,t,i),pts:+String((((S.rosterPts||{})[k])||[])[i-1]||'').replace(',','.')||0,o,V,D,J:V+D});}});});return out;}
+function plFilter(){const q=nkey(S.plQ||''),L=allPlayers().filter(x=>(!S.plClub||x.club===S.plClub)&&(!S.plCat||x.c.id===S.plCat)&&(!q||nkey(x.n).includes(q)||q.split(' ').every(w=>nkey(x.n).includes(w))));
+  const so=S.plSort||'clt';L.sort((a,b)=>so==='win'?(b.V-a.V)||(a.D-b.D)||((b.o.sw-b.o.sl)-(a.o.sw-a.o.sl)):so==='nom'?a.n.localeCompare(b.n):((a.clt||1e9)-(b.clt||1e9))||(b.V-a.V)||a.n.localeCompare(b.n));return L;}
+function plTable(){const L=plFilter();if(!L.length)return '<div class="empty">Aucun joueur ne correspond.</div>';const many=!S.plCat;
+  return `<p class="legend">${L.length} joueur${L.length>1?'s':''} · touchez un joueur pour sa fiche complète.</p><div class="tbl"><div class="sc-wrap"><table class="anat plt"><thead><tr><th>Joueur</th>${many?'<th>Catégorie</th>':''}<th>Club</th><th>Âge</th><th>Clt</th><th>Pts FRMT</th><th>Simples</th><th>Doubles</th><th>Sets</th><th>% vict.</th></tr></thead><tbody>
+   ${L.slice(0,400).map(x=>`<tr class="${isMine(x.t)?'me':''}" data-plf="${x.c.id}|${h(x.t)}|${x.i}" role="button" tabindex="0" style="cursor:pointer"><td class="w"><b>${h(x.n)}</b>${(x.o.b||[]).map(([e,tt])=>`<span class="bdg" title="${h(tt)}">${e}</span>`).join('')}</td>${many?`<td class="w"><small>${h(x.c.nom+(x.c.sexe?' '+x.c.sexe[0]:'')+' '+x.c.div)}</small></td>`:''}<td>${h(x.t)}</td><td>${h(tagLabel(x.tg)||'–')}</td><td>${x.clt||'NC'}</td><td>${x.pts?fmtPts(x.pts):'–'}</td><td>${x.o.sv}-${x.o.sd}</td><td>${x.o.dv}-${x.o.dd}</td><td>${x.J?(x.o.sw-x.o.sl>0?'+':'')+(x.o.sw-x.o.sl):'–'}</td><td>${x.J?Math.round(100*x.V/x.J)+' %':'–'}</td></tr>`).join('')}</tbody></table></div></div>${L.length>400?'<p class="legend">… affinez la recherche pour voir les autres joueurs.</p>':''}`;}
+function plSection(){const clubs=[...new Set(CATS.flatMap(c=>teamsOf(c).map(base)))].sort();if(S.plClub===undefined)S.plClub=S.myClub||'';
+  return `<h2>👥 Joueurs</h2><p class="legend" style="margin-top:-4px">Données et statistiques de chaque joueur : classement FRMT, résultats en simple et en double, et fiche détaillée.</p>
+   <div class="anah"><select id="plclub"><option value="">Tous les clubs</option>${clubs.map(k=>`<option${k===S.plClub?' selected':''}>${h(k)}</option>`).join('')}</select>
+    <select id="plcat"><option value="">Toutes les catégories</option>${CATS.map(c=>`<option value="${c.id}"${c.id===S.plCat?' selected':''}>${h(catLabel(c))}</option>`).join('')}</select>
+    <select id="plsort"><option value="clt"${(S.plSort||'clt')==='clt'?' selected':''}>Tri : classement FRMT</option><option value="win"${S.plSort==='win'?' selected':''}>Tri : victoires</option><option value="nom"${S.plSort==='nom'?' selected':''}>Tri : nom</option></select>
+    <input id="plq" value="${h(S.plQ||'')}" placeholder="🔍 Rechercher un joueur" autocomplete="off" style="flex:1;min-width:160px"></div>
+   <div id="pltab">${plTable()}</div>`;}
+function openPlayer(cid,t,i){const c=CATMAP[cid];if(!c)return;i=+i;const k=rkey(c,t),nm=pname(c,t,i),ps=playerStats(c).find(o=>o.t===t&&o.k===i)||{sv:0,sd:0,dv:0,dd:0,sw:0,sl:0,best:0,cb:0,b:[]};
+  const clt=cltOf(c,t,i),pts=(((S.rosterPts||{})[k])||[])[i-1],hist=playerHist(c,t,i),sv=playerServe(c,t,i),tot=addSt(Object.assign({n:0},sv.s),sv.d),V=ps.sv+ps.dv,D=ps.sd+ps.dd,av=availOf(k,i);
+  const freeM=Object.entries(S.free||{}).filter(([id,f])=>f.c===c.id&&((f.A.t===t&&(f.A.ix||[]).includes(String(i)))||(f.B.t===t&&(f.B.ix||[]).includes(String(i)))));
+  const html=`<div class="rp"><div class="rp-h"><h3>🎾 ${h(nm)}</h3><p>${h(t)} · ${h(catLabel(c))}${ptag(c,t,i)?' · '+h(tagLabel(ptag(c,t,i),true)):''}</p></div>
+   <div class="rp-k"><div><b>${clt||'NC'}</b><small>classement FRMT${pts?' · '+fmtPts(pts)+' pts':''}</small></div><div><b>${V}-${D}</b><small>victoires - défaites</small></div><div><b>${V+D?Math.round(100*V/(V+D))+' %':'–'}</b><small>de victoires</small></div></div>
+   <table class="rp-t"><tr><td>Simples</td><td><b>${ps.sv}-${ps.sd}</b></td></tr><tr><td>Doubles</td><td><b>${ps.dv}-${ps.dd}</b></td></tr><tr><td>Sets gagnés - perdus</td><td><b>${ps.sw}-${ps.sl}</b></td></tr>
+    ${ps.best?`<tr><td>Meilleure série de victoires</td><td><b>${ps.best}</b></td></tr>`:''}${ps.cb?`<tr><td>Victoires après avoir perdu le 1er set</td><td><b>${ps.cb}</b></td></tr>`:''}
+    ${av!=='ok'?`<tr><td>Disponibilité</td><td><b>${av==='bl'?'🤕 blessé(e)':'❌ indisponible'}</b></td></tr>`:''}</table>
+   ${(ps.b||[]).length?`<p style="margin:8px 0">${ps.b.map(([e,tt])=>`<span class="pill ok">${e} ${h(tt)}</span>`).join(' ')}</p>`:''}
+   <h5>🎾 Service et retour</h5>${tot.n?insightHTML(tot)+serveTable(sv.s,'En simple')+serveTable(sv.d,'En double'):'<p class="rp-n">Disponible dès qu’une de ses parties est comptée en Live ou enregistrée au carnet de match.</p>'}
+   <h5>Parcours dans le championnat (${hist.length} partie${hist.length>1?'s':''})</h5>${hist.length?`<table class="rp-t">${hist.map(x=>`<tr><td>${x.m.date?h(DSHORT[x.m.date]):h(x.m.tag||'')}</td><td>${h(x.lab)}${x.mate?'<br><small>avec '+h(x.mate)+'</small>':''}</td><td>${h(x.oppN||'')} <small>(${h(x.opp)})</small></td><td>${h(fmtScore(x.sc))}</td><td>${x.res}${x.q?`<br><button class="btn sm" data-rep="m|${x.m.id}|${x.i}">🧠 Analyse</button>`:''}</td></tr>`).join('')}</table>`:'<p class="rp-n">Aucune partie avec ce joueur inscrit pour le moment.</p>'}
+   ${freeM.length?`<h5>Matchs hors championnat (carnet)</h5><table class="rp-t">${freeM.map(([id,f])=>`<tr><td>${h(new Date(f.d).toLocaleDateString('fr-FR'))}</td><td>${h(f.lab||'')}</td><td>${h((f.A.n||[]).join(' / '))} – ${h((f.B.n||[]).join(' / '))}</td><td>${h(f.sc||'')}</td><td><button class="btn sm" data-rep="f|${h(id)}|">🧠 Analyse</button></td></tr>`).join('')}</table>`:''}</div>`;
+  ovOpen('rep');OV.innerHTML=`<div class="ov-h"><div><b style="color:#fff;font-size:15px">👥 Fiche joueur</b></div><button class="ov-x" data-ov="close">Fermer</button></div><div style="margin-top:10px">${html}</div><div class="lact" style="margin-top:10px"><button class="btn pri" data-repprint>📄 Imprimer / PDF</button></div>`;REPH=html;}
 function renderClubs(){
   const arr=Object.values(clubStats()).sort((x,y)=>(y.k===S.myClub)-(x.k===S.myClub)||y.V-x.V||(y.pp-y.pc)-(x.pp-x.pc)||y.teams.length-x.teams.length||x.k.localeCompare(y.k));
   const palm=CATS.map(c=>{const ps=playerStats(c),mvp=ps.find(o=>o.mvp),pr=ps.pairs[0];
     return `<tr><td><b>${h(catLabel(c))}</b></td><td>${h(catHeadline(c))}</td><td>${mvp?h(mvp.n)+' <small>('+h(mvp.t)+')</small>':'–'}</td><td>${pr&&pr.v?h(pr.n)+' <small>('+h(pr.t)+')</small>':'–'}</td></tr>`;}).join('');
-  main.innerHTML=`<h2>Palmarès</h2><div class="tbl"><div class="sc-wrap"><table class="palm"><thead><tr><th>Catégorie</th><th>Situation</th><th>🏅 Meilleur joueur</th><th>🤝 Meilleure paire</th></tr></thead><tbody>${palm}</tbody></table></div></div>
+  main.innerHTML=`${plSection()}
+  <h2>Palmarès</h2><div class="tbl"><div class="sc-wrap"><table class="palm"><thead><tr><th>Catégorie</th><th>Situation</th><th>🏅 Meilleur joueur</th><th>🤝 Meilleure paire</th></tr></thead><tbody>${palm}</tbody></table></div></div>
   <h2>Bilan par club</h2><p class="legend" style="margin-top:-4px">Toutes catégories confondues, phases finales comprises. Classé par nombre de rencontres gagnées${S.myClub?', votre club en premier':''}.</p>
   <div class="clubs">${arr.map(k=>{const pct=k.J?100*k.V/k.J:0;const me=k.k===S.myClub;
     return `<div class="club${me?' mine':''}"><div class="club-h"><b>${me?'★ ':''}${h(k.k)}</b><span><em>${k.V} V</em> / <i>${k.D} D</i></span></div>
@@ -2216,6 +2253,7 @@ OV.addEventListener('click',e=>{const t=e.target;
     if(t.closest('[data-lreset]')){if(confirm('Effacer tous les points de cette partie ?')){L.pts=[];L.sv=[];L.hw=[];L.flt=false;afterLive();}return;}}
   if(OVMODE==='qr'){const q=t.closest('[data-qr]');if(q&&QRC)QRC[q.dataset.qr]();}
   if(OVMODE==='marq'){const b=t.closest('[data-mq]');if(!b)return;const id=(OV.querySelector('.ov-h b')&&S._mqid)||'';sendMarq(S._mqid,b.dataset.mq);return;}
+  if(OVMODE==='rep'){const rp1=t.closest('[data-rep]');if(rp1){const [a,b,c2]=rp1.dataset.rep.split('|');if(a==='f')openReportFree(b);else openReport(b,c2);return;}}
   if(OVMODE==='rep'&&t.closest('[data-repprint]')){const html=REPH;ovClose();document.getElementById('print').innerHTML=html;const old=document.title;document.title='Analyse_match';window.addEventListener('afterprint',()=>{document.title=old;},{once:true});setTimeout(()=>window.print(),80);return;}
   if(OVMODE==='cimp'&&CIMP){if(t.closest('[data-ciok]')){const mid=(document.getElementById('ci_m')||{}).value||'',pi=(document.getElementById('ci_p')||{}).value||'';if(mid&&pi===''){toast('Choisissez la partie');return;}const o=CIMP.o;CIMP=null;ovClose();applyCarnet(o,mid,pi);return;}}
   if(OVMODE==='pad'&&PAD){const P=PAD,b=t.closest('[data-ps]');
@@ -2489,7 +2527,7 @@ function syncUI(){const b=document.getElementById('syncst');if(!b)return;if(!syn
   b.title=S.sync.err||'Synchroniser maintenant';}
 document.getElementById('syncst').addEventListener('click',()=>syncNow(true));
 document.getElementById('who').addEventListener('click',()=>{S.tab='data';save();render();window.scrollTo(0,0);});
-const APP_VERSION='2026-10-03 22:00';
+const APP_VERSION='2026-10-04 08:00';
 const DEFAULT_APP_URL='https://mrani-hub.github.io/tennis-jeunes-7q4/';
 const appUrl=()=>{const u=String(S.appUrl||'').trim();if(/^https:\/\//.test(u))return u.replace(/#.*$/,'');return /^https:$/.test(location.protocol)?location.origin+location.pathname:DEFAULT_APP_URL;};
 const inviteLink=code=>appUrl()?appUrl()+'#i='+code:'';
@@ -2744,7 +2782,7 @@ function renderData(){if(syncReady()&&S.sync.role==='lecture')return renderDataL
 
 /* ============ ÉVÉNEMENTS ============ */
 document.querySelector('nav').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(!b)return;S.tab=b.dataset.tab;save();render();window.scrollTo(0,0);if(S.tab==='live'||S.tab==='mine')liveSync(false);});
-main.addEventListener('input',e=>{const t=e.target;
+main.addEventListener('input',e=>{const t=e.target;if(t.id==='plq'){S.plQ=t.value;const el=document.getElementById('pltab');if(el)el.innerHTML=plTable();return;}
   if(t.dataset.fin){if(!canAdmin())return;S.fin[t.dataset.fin]=t.value;S.finTs[t.dataset.fin]=now();save();return;}
   if(t.tagName==='SELECT')return;
   if(t.dataset.pl){if(!canRosterK(t.dataset.pl))return;const k=t.dataset.pl,L=S.roster[k]=Array.from(S.roster[k]||[],x=>x||'');while(L.length<=+t.dataset.i)L.push('');L[+t.dataset.i]=t.value;S.rosterTs[k]=now();save();return;}
@@ -2774,6 +2812,9 @@ main.addEventListener('change',e=>{const t=e.target;
   if(t.id==='repg'){S.repG=t.value;save();render();return;}
   if(t.dataset.repk){if(!canAdmin())return;const [g,k]=t.dataset.repk.split('|');let v=+String(t.value).replace(',','.');if(!isFinite(v)){toast('Valeur invalide');return;}if(!['df','wue'].includes(k))v=Math.max(0,Math.min(100,v))/100;
     const rep=Object.assign({},(S.cfg||{}).rep);rep[g]=Object.assign({},rep[g],{[k]:v});S.cfg=Object.assign({},S.cfg,{rep});if(syncReady()){S.fin['cfg:rep']=JSON.stringify(rep);S.finTs['cfg:rep']=now();}save();toast(`${REP_GRP[g]} · ${REP_LAB[k]} : ${t.value}`);return;}
+  if(t.id==='plclub'){S.plClub=t.value;save();document.getElementById('pltab').innerHTML=plTable();return;}
+  if(t.id==='plcat'){S.plCat=t.value;save();document.getElementById('pltab').innerHTML=plTable();return;}
+  if(t.id==='plsort'){S.plSort=t.value;save();document.getElementById('pltab').innerHTML=plTable();return;}
   if(t.id==='lvpref'){S.lvNotif=t.value;save();toast(t.value==='off'?'Notifications des Live désactivées':t.value==='all'?'Vous serez prévenu de tous les Live':'Vous serez prévenu des Live de votre club');return;}
   if(t.id==='prepm'){S.prepM=t.value;save();render();return;}
   if(t.id==='prepside'){S.prepSide=t.value;save();render();return;}
@@ -2870,6 +2911,7 @@ main.addEventListener('click',e=>{const t=e.target;
   const cn0=t.closest('[data-carnet]');if(cn0){copyText(cn0.dataset.carnet);return;}
   const cw0=t.closest('[data-carnetwa]');if(cw0){doShare(`📒 Carnet de match – Championnat jeunes FRMT\nEnregistrez un match point par point (service, 1re / 2e balle, winners, fautes…) et obtenez ses statistiques. Fonctionne même sans réseau.\n👉 ${cw0.dataset.carnetwa}\nÀ la fin du match, touchez « Envoyer » pour me le transmettre.`,navigator.share?'native':'wa');return;}
   const rr0=t.closest('[data-represet]');if(rr0){if(!canAdmin())return;const g=rr0.dataset.represet,rep=Object.assign({},(S.cfg||{}).rep);delete rep[g];S.cfg=Object.assign({},S.cfg,{rep});if(syncReady()){S.fin['cfg:rep']=JSON.stringify(rep);S.finTs['cfg:rep']=now();}save();render();toast('Repères par défaut rétablis');return;}
+  const pf0=t.closest('[data-plf]');if(pf0){const v=pf0.dataset.plf,a=v.indexOf('|'),b=v.lastIndexOf('|');openPlayer(v.slice(0,a),v.slice(a+1,b),v.slice(b+1));return;}
   const rp0=t.closest('[data-rep]');if(rp0){const [a,b,c2]=rp0.dataset.rep.split('|');if(a==='f')openReportFree(b);else openReport(b,c2);return;}
   if(t.closest('[data-lvperm]')){if(!window.Notification){toast('Notifications non disponibles sur ce téléphone');return;}Notification.requestPermission().then(r=>{toast(r==='granted'?'🔔 Notifications activées':'Notifications refusées : un message s\'affichera dans l\'appli');render();});return;}
   const pp0=t.closest('[data-prepdf]');if(pp0){const v=pp0.dataset.prepdf,k=v.indexOf('|');printPrep(v.slice(0,k),v.slice(k+1));return;}
