@@ -1541,6 +1541,27 @@ function probable(m,c,t){const sd=m.t1===t?0:1,r=S.res[m.id]||{},P=parts(c),out=
 function h2hList(A,B){const out=[],na=nkey(A),nb=nkey(B);
   CATS.forEach(c=>{[...c.matches].forEach(m=>{const r=S.res[m.id];if(!r)return;PLid(m.id).forEach((lab,i)=>{const sc=String((r.p||[])[i]||'').trim(),st=partie(sc);if(!st||!st.w)return;
     const n=effN(m,i),x=nkey(pnames(c,m.t1,n[0])),y=nkey(pnames(c,m.t2,n[1]));if((x===na&&y===nb)||(x===nb&&y===na))out.push({c,m,lab,sc,win:(st.w===1?x:y)===na});});});});return out;}
+/* Enjeu au classement : classement de la poule, matchs restants et conséquences de chaque résultat */
+function stakesHTML(m,me){const c=m.cat||catOfId(m.id);if(!c||isFinalM(m)||!c.poules||!c.poules[m.poule])return '';const pl=m.poule,op=m.t1===me?m.t2:m.t1,st=standings(c,pl);
+  const left=t=>c.matches.filter(x=>x.poule===pl&&(x.t1===t||x.t2===t)&&!ev(x.id).done);
+  const two=c.type==='2P',rule=two?'Les 2 premiers de la poule sont qualifiés pour les demi-finales.':'Poule unique : le 1er est vainqueur, le 2e finaliste.';
+  const rank=t=>st.rows.findIndex(r=>r.t===t)+1,d=(a,b)=>{const x=a-b;return (x>0?'+':'')+fmtPts(x);};
+  const rows=st.rows.map((r,i)=>{const L=left(r.t),mx=r.P+3*L.length,hl=r.t===me?' style="background:#e3f4e9;font-weight:700"':r.t===op?' style="background:#fbe5e2;font-weight:700"':'';
+    return `<tr${hl}><td>${i+1}${two&&i<2?' ✓':''}</td><td class="w">${h(r.t)}${r.t===me?' <small>(vous)</small>':r.t===op?' <small>(adversaire)</small>':''}</td><td><b>${r.P}</b></td><td>${r.J}</td><td>${r.V}-${r.N}-${r.D+r.F}</td><td>${fmtPts(r.pp)}-${fmtPts(r.pc)}</td><td>${d(r.sp,r.sc)}</td><td>${L.length}</td><td>${mx}</td></tr>`;}).join('');
+  const sc=(dme,dop,lab)=>{const pts=st.rows.map(r=>({t:r.t,P:r.P+(r.t===me?dme:r.t===op?dop:0)}));const my=pts.find(x=>x.t===me).P,ab=pts.filter(x=>x.P>my).length,eq=pts.filter(x=>x.P===my&&x.t!==me).map(x=>x.t);
+    const pos=ab+1;const rest=t=>left(t).filter(x=>x.id!==m.id).length,myMin=my+rest(me);
+    /* qui peut encore passer devant, en tenant compte des rencontres restantes de chacun */
+    const thr=pts.filter(x=>x.t!==me&&x.P+3*rest(x.t)>=myMin).map(x=>x.t),need=two?2:1,safe=thr.length<need;
+    const ok=safe?(two?' — <b>qualification assurée</b>':' — <b>1re place assurée</b>'):(pos<=need?' — peut encore être rejoint ou dépassé par '+h(thr.join(', ')):'');
+    return `<li><b>${lab}</b> : ${h(me)} passe à <b>${my} pts</b>, ${pos}${pos===1?'er':'e'} provisoire${eq.length?' (à égalité avec '+h(eq.join(', '))+' : départage)':''}${ok}.</li>`;};
+  const rem=left(me).filter(x=>x.id!==m.id).map(x=>(x.t1===me?x.t2:x.t1)+(x.date?' ('+DSHORT[x.date]+')':''));
+  return `<h4 style="margin-top:12px">🏆 Enjeu au classement · ${two?'poule '+pl:'poule unique'}</h4>
+   <p class="anote" style="margin:2px 0 6px">${rule} Barème : victoire 3 pts, nul 2, défaite 1, forfait −1. ${st.done}/${st.total} rencontres jouées.</p>
+   <div class="sc-wrap"><table class="anat"><thead><tr><th>#</th><th>Équipe</th><th>Pts</th><th>J</th><th>V-N-D</th><th>Matchs</th><th>Sets</th><th>Restant</th><th>Pts max</th></tr></thead><tbody>${rows}</tbody></table></div>
+   <p class="anote" style="margin:6px 0 2px">Avant la rencontre : ${h(me)} ${rank(me)}${rank(me)===1?'er':'e'}, ${h(op)} ${rank(op)}${rank(op)===1?'er':'e'}. « Pts max » = points atteignables en gagnant toutes les rencontres restantes.</p>
+   <ul class="anote" style="margin:2px 0 4px">${sc(3,1,'Victoire')}${sc(2,2,'Match nul')}${sc(1,3,'Défaite')}</ul>
+   ${rem.length?`<p class="anote" style="margin:2px 0">Ensuite pour ${h(me)} : ${h(rem.join(', '))}.</p>`:`<p class="anote" style="margin:2px 0">C'est la dernière rencontre de poule de ${h(me)}.</p>`}
+   <p class="anote" style="margin:2px 0">En cas d'égalité de points : confrontation directe entre 2 équipes ; à 3 ou plus, différence de matchs, puis % de sets, puis % de jeux.</p>`;}
 function prepHTML(m,me){const c=m.cat||catOfId(m.id),op=m.t1===me?m.t2:m.t1,R0=teamRatings(c),pr=predict(R0,me,op),P=parts(c),tot=P.reduce((q,x)=>q+x.pts,0);
   const rs1=rosterStrength(c,me),rs2=rosterStrength(c,op);const rec=t=>{let v=0,n=0,d=0,pp=0,pc=0;R0.G.forEach(g=>{if(g.m.t1!==t&&g.m.t2!==t)return;const s1=g.m.t1===t;const a=s1?g.e.p1:g.e.p2,b=s1?g.e.p2:g.e.p1;pp+=a;pc+=b;a>b?v++:a<b?d++:n++;});return {v,n,d,pp,pc};};
   const r1=rec(me),r2=rec(op);
@@ -1559,6 +1580,7 @@ function prepHTML(m,me){const c=m.cat||catOfId(m.id),op=m.t1===me?m.t2:m.t1,R0=t
   return `<div class="prep">
    <div class="vs2"><div><b>${h(me)}</b><br><small>indice ${Math.round(R0.idx[me])}</small></div><div class="x">VS</div><div><b>${h(op)}</b><br><small>indice ${Math.round(R0.idx[op])}</small></div></div>
    <p style="text-align:center;margin:0 0 8px">${dCell(pr.diff)}<br><small>Favori : <b>${h(pr.fav)}</b> (${pr.conf} %) · score estimé ${fmtPts(Math.round(2*tot*(pr.fav===me?pr.sh:1-pr.sh))/2)} – ${fmtPts(Math.round(2*tot*(pr.fav===me?1-pr.sh:pr.sh))/2)} pour ${h(me)}</small></p>
+   ${stakesHTML(m,me)}
    <h4>Club contre club</h4><table class="cmp"><tbody>
    ${row('Indice de force (résultats)',Math.round(R0.idx[me]),Math.round(R0.idx[op]),cmpB(R0.idx[me],R0.idx[op]))}
    ${row('Force de l\'effectif (points FRMT)',fmtPts(Math.round(rs1.pts)),fmtPts(Math.round(rs2.pts)),cmpB(rs1.pts,rs2.pts))}
@@ -2527,7 +2549,7 @@ function syncUI(){const b=document.getElementById('syncst');if(!b)return;if(!syn
   b.title=S.sync.err||'Synchroniser maintenant';}
 document.getElementById('syncst').addEventListener('click',()=>syncNow(true));
 document.getElementById('who').addEventListener('click',()=>{S.tab='data';save();render();window.scrollTo(0,0);});
-const APP_VERSION='2026-10-04 08:00';
+const APP_VERSION='2026-10-04 10:00';
 const DEFAULT_APP_URL='https://mrani-hub.github.io/tennis-jeunes-7q4/';
 const appUrl=()=>{const u=String(S.appUrl||'').trim();if(/^https:\/\//.test(u))return u.replace(/#.*$/,'');return /^https:$/.test(location.protocol)?location.origin+location.pathname:DEFAULT_APP_URL;};
 const inviteLink=code=>appUrl()?appUrl()+'#i='+code:'';
