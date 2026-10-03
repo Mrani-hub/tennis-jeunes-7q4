@@ -2450,7 +2450,7 @@ function syncUI(){const b=document.getElementById('syncst');if(!b)return;if(!syn
   b.title=S.sync.err||'Synchroniser maintenant';}
 document.getElementById('syncst').addEventListener('click',()=>syncNow(true));
 document.getElementById('who').addEventListener('click',()=>{S.tab='data';save();render();window.scrollTo(0,0);});
-const APP_VERSION='2026-10-03 14:00';
+const APP_VERSION='2026-10-03 16:00';
 const DEFAULT_APP_URL='https://mrani-hub.github.io/tennis-jeunes-7q4/';
 const appUrl=()=>{const u=String(S.appUrl||'').trim();if(/^https:\/\//.test(u))return u.replace(/#.*$/,'');return /^https:$/.test(location.protocol)?location.origin+location.pathname:DEFAULT_APP_URL;};
 const inviteLink=code=>appUrl()?appUrl()+'#i='+code:'';
@@ -2474,7 +2474,7 @@ async function shareAppFile(role,venue,pidx){if(!S.sync.codes){toast("Mettez d'a
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));a.download=name;document.body.appendChild(a);a.click();a.remove();toast('Fichier téléchargé : envoyez-le par WhatsApp');return true;}
 function invPanel(){if(!syncReady()||S.sync.role!=='admin')return '';
   const blk=(r,t,d)=>`<div class="inv"><p><span class="rolep ${r}">${ROLES[r]}</span> ${d}</p><div class="actions" style="margin-top:4px"><button class="btn pri" data-inv="${r}|file">📎 Envoyer l'appli préconfigurée</button><button class="btn wa" data-inv="${r}|wa">Message WhatsApp</button><button class="btn" data-inv="${r}|qr">QR code</button>${appUrl()?`<button class="btn" data-inv="${r}|link">🔗 Copier le lien</button>`:''}</div></div>`;
-  const carnet=(appUrl()||DEFAULT_APP_URL).replace(/[^/]*$/,'')+'carnet/';
+  const carnet=(appUrl()||DEFAULT_APP_URL).replace(/[^/]*$/,'')+'carnet.html';
   return `<div class="panel"><b>Inviter des utilisateurs</b>
    <div class="inv"><p><b>📒 Carnet de match</b> : appli libre, sans code, pour enregistrer un match point par point (même hors championnat, même sans réseau) et vous l'envoyer. Peut circuler librement.</p><div class="actions" style="margin-top:4px"><button class="btn" data-carnet="${h(carnet)}">🔗 Copier le lien du carnet</button><button class="btn wa" data-carnetwa="${h(carnet)}">WhatsApp</button></div></div>
    <p class="legend">Le plus simple : envoyez l'<b>appli préconfigurée</b>. La personne ouvre le fichier reçu, choisit son club, et c'est prêt, sans rien saisir.</p>
