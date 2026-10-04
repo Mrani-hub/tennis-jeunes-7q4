@@ -2504,7 +2504,7 @@ function lvCheck(){if(!syncReady())return;const pref=lvPref(),seen=S.lvSeen=Obje
   Object.entries(S.live||{}).forEach(([k,L])=>{if(!L||L.stop||!fresh(L.ts)||L.own===S.devId)return;const [id,i]=k.split('#'),m=getMatch(id);if(!m||!m.t1||!m.t2)return;if(replay(L).w)return;
     const nn=effN(m,+i),c=m.cat,mine=isMine(m.t1)||isMine(m.t2)||(S.sync.role==='ja'&&mVenue(m)===S.sync.venue);
     found.push({key:k,mine,title:`Live : ${m.t1} – ${m.t2}`,body:`${catLabel(c)} · ${PLid(id)[+i]||'Partie'}\n${pnamesL(c,m.t1,nn[0])||m.t1} contre ${pnamesL(c,m.t2,nn[1])||m.t2}`});});
-  carnetLives().forEach(({id,o,R,t})=>{if(R.w||!fresh(t))return;const c=CATMAP[o.c],nm=S0=>(S0.n||[]).join(' / ');const mine=[o.A.t,o.B.t].some(x=>x&&isMine(x));
+  carnetLives().forEach(({id,o,R,t})=>{if((R.w||o.ab)&&fresh(t)&&canIntC(o)&&!carnetDone(id,o)&&!seen['end:'+id]){if(LV_READY)lvNotify('end:'+id,'Résultat de carnet à intégrer',`${o.lab||''} : ${(o.A.n||[]).join(' / ')} – ${(o.B.n||[]).join(' / ')} · ${o.sc||''}`);else seen['end:'+id]=t0;}if(R.w||!fresh(t))return;const c=CATMAP[o.c],nm=S0=>(S0.n||[]).join(' / ');const mine=[o.A.t,o.B.t].some(x=>x&&isMine(x));
     found.push({key:'c:'+id,mine,title:`Live (carnet) : ${o.A.t||nm(o.A)} – ${o.B.t||nm(o.B)}`,body:`${c?catLabel(c):''} · ${o.lab||''}\n${nm(o.A)} contre ${nm(o.B)}`});});
   /* au premier passage, les Live déjà en cours sont seulement mémorisés : pas d'avalanche de notifications à l'ouverture */
   found.forEach(x=>{if(seen[x.key])return;if(!LV_READY||pref==='off'||(pref==='mine'&&!x.mine)){seen[x.key]=t0;return;}lvNotify(x.key,x.title,x.body);});
@@ -2552,14 +2552,34 @@ function upNextHTML(mine){const L=upNext(mine);if(!L.length)return '';
     <span class="c">${h(catLabel(c))} · ${h(lab)}<br>${m.date?h(DSHORT[m.date])+' · '+h(whenTxt(m,m.lieu))+' · 📍 '+h(venueName(m.lieu)):h(m.tag||'Phase finale')}</span>
     <span class="a">${h(pnamesC(c,m.t1,n[0]))} <small class="clubn">${h(m.t1)}</small></span><span class="s e">vs</span><span class="b">${h(pnamesC(c,m.t2,n[1]))} <small class="clubn">${h(m.t2)}</small></span></div>`).join('')}</div>${L.length>40?`<p class="legend">… et ${L.length-40} autres affiches.</p>`:''}`;}
 /* Live diffusés depuis le carnet de match (public) : l'affichage suit chaque nouveau point reçu */
-function setClive(m){const j=JSON.stringify(m||{});if(j===S._cj)return;S._cj=j;S.clive=m||{};lvCheck();if(!OVMODE&&(S.tab==='live'||S.tab==='mine'))render();}
+function setClive(m){const j=JSON.stringify(m||{});if(j===S._cj)return;S._cj=j;S.clive=m||{};
+  if(syncReady()&&(S.sync.role==='admin'||S.sync.role==='ja'))Object.entries(S.clive).forEach(([id,x])=>{try{const o=JSON.parse(x.d),L=decQ(o.q);if(!L)return;if(replay(L).w||o.ab){S.cdone=Object.assign({},S.cdone,{[id]:x});}}catch(e){}});
+  lvCheck();if(!OVMODE&&(S.tab==='live'||S.tab==='mine'))render();}
+/* intégration du résultat d'un Live de carnet dans la rencontre, en un appui (organisateur, ou juge-arbitre du lieu) */
+function carnetObj(id,x){const o=JSON.parse(x.d);return Object.assign({},o,{id:'cl_'+id,d:new Date(x.t||Date.now()).toISOString(),db:(o.A.n||[]).length>1?1:0,A:Object.assign({i:[]},o.A),B:Object.assign({i:[]},o.B)});}
+function carnetDone(id,o){const m=o.m&&getMatch(o.m);if(m&&o.pi!==''&&o.pi!==undefined){const q=((S.res[o.m]||{}).q||{})[o.pi];const L=decQ(q),L2=decQ(o.q);return !!(L&&L2&&L.pts.length===L2.pts.length);}return !!(S.free||{})['cl_'+id];}
+const canIntC=o=>{if(!syncReady())return false;if(S.sync.role==='admin')return true;const m=o.m&&getMatch(o.m);return S.sync.role==='ja'&&!!m&&canJA(m);};
+function carnetPending(){const out=[];const seen=new Set();const add=(id,x)=>{if(seen.has(id))return;seen.add(id);try{const o=JSON.parse(x.d),L=decQ(o.q);if(!L)return;const R=replay(L);if(!R.w&&!o.ab)return;
+    if((S.cdoneSt||{})[id]||carnetDone(id,o)||!canIntC(o))return;out.push({id,x,o,L,R});}catch(e){}};
+  Object.entries(S.clive||{}).forEach(([id,x])=>add(id,x));Object.entries(S.cdone||{}).forEach(([id,x])=>add(id,x));return out;}
+function carnetPendingHTML(){const L=carnetPending();if(!L.length)return '';
+  return `<div class="panel" style="border-color:var(--gold)"><b>📒 Résultats de carnet à intégrer (${L.length})</b><p class="legend">Matchs terminés diffusés depuis le carnet de match : vérifiez puis intégrez le score à la rencontre (le Live ne remplit pas la feuille de match tout seul).</p>
+   ${L.map(({id,o,R})=>{const c=CATMAP[o.c],m=o.m&&getMatch(o.m),nm=S0=>(S0.n||[]).join(' / ');return `<div class="prow" style="grid-template-columns:1fr auto"><span class="c"><b>${h(o.lab||'')}</b> · ${h(c?catLabel(c):'')}${m?' · '+h(m.t1)+' – '+h(m.t2):' · hors championnat'}<br>${h(nm(o.A))} – ${h(nm(o.B))} : <b>${h(o.sc||scoreStr(R))}</b>${o.ab?' (abandon)':''}</span>
+     <span style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm pri" data-cint="${h(id)}">✓ Intégrer</button><button class="btn sm" data-cdis="${h(id)}">Ignorer</button></span></div>`;}).join('')}</div>`;}
+function intCarnet(id){const x=(S.clive||{})[id]||(S.cdone||{})[id];if(!x)return;let o;try{o=carnetObj(id,x);}catch(e){toast('Données du carnet illisibles');return;}
+  const m=o.m&&getMatch(o.m);
+  if(m&&o.pi!==''&&o.pi!==undefined){const cur=String(((S.res[m.id]||{}).p||[])[o.pi]||'').trim();
+    if(!confirm(`Intégrer le résultat du carnet ?\n${m.t1} – ${m.t2} · ${PLid(m.id)[o.pi]||''}\nScore : ${o.sc}${cur?'\n(remplace le score saisi : '+cur+')':''}`))return;
+    applyCarnet(o,m.id,String(o.pi));S.cdoneSt=Object.assign({},S.cdoneSt,{[id]:'ok'});save();render();return;}
+  if(S.sync.role!=='admin'){toast('Match hors championnat : à intégrer par l’organisateur');return;}
+  showCarnetImport(o);S.cdoneSt=Object.assign({},S.cdoneSt,{[id]:'ok'});save();}
 function carnetLives(){const out=[];Object.entries(S.clive||{}).forEach(([id,x])=>{try{const o=JSON.parse(x.d);if(!o||!o.q)return;const L=decQ(o.q);if(!L)return;out.push({id,o,L,R:replay(L),t:x.t});}catch(e){}});return out.sort((a,b)=>b.t-a.t);}
 function carnetLiveHTML(){const L0=carnetLives();if(!L0.length)return '';const adm=canAdmin()&&syncReady();
   return `<h3>📒 Live des carnets de match (${L0.length})</h3><p class="legend" style="margin-top:-4px">Matchs diffusés par des parents ou entraîneurs depuis le carnet de match. Non vérifiés par l'organisateur.</p>${L0.map(({id,o,L,R,t})=>{const c=CATMAP[o.c],nm=S0=>(S0.n||[]).map((n,j)=>n+' ('+((S0.cl||[])[j]||'NC')+')').join(' / ');
     const m=o.m&&getMatch(o.m),cols=R.sets.length+(R.w?0:1);const row=(sd,S0)=>{const k=sd-1;return `<div class="lr${R.w===sd?' win':''}" style="--n:${cols}"><span class="nm">${h(nm(S0))}${!R.w&&R.srv===sd?'<span class="srvb">🎾</span>':''} <small>${h(S0.t||'')}</small></span>${R.sets.map(x=>`<span class="st">${x[k]}</span>`).join('')}${R.w?'':`<span class="st cur">${R.stb?'':R.g[k]}</span>`}<span class="${R.w?'st':'pt'}">${R.w?(R.w===sd?'✓':''):ptLabel(R,k,L)}</span></div>`;};
     return `<div class="lc${R.w?'':' on'}"><div class="lc-h"><span><b>${h(o.lab||'')}</b> · ${h(c?catLabel(c):'')}${m?' · '+h(m.t1)+' – '+h(m.t2):' · hors championnat'}</span><span class="${R.w?'done':'dot'}">${R.w?'Terminé':'Live'}</span></div>${row(1,o.A)}${row(2,o.B)}
      <div class="cst"><button class="cstb" data-cst="${h(id)}">📊 ${(S._cst||{})[id]?'Masquer':'Voir'} les statistiques du match</button>${(S._cst||{})[id]?liveStats(L,[o.A,o.B].map(S0=>h(String((S0.n||[])[0]||S0.t||'').split(' ')[0]))):''}</div>
-     <div class="lc-f"><span>📒 Carnet de match · ${ago(t)}</span>${adm?`<button class="btn sm danger" data-cban="${h(id)}">⛔ Arrêter ce Live</button>`:''}</div></div>`;}).join('')}`;}
+     <div class="lc-f"><span>📒 Carnet de match · ${ago(t)}${(R.w||o.ab)&&carnetDone(id,o)?' · <b style="color:var(--win)">✓ résultat intégré</b>':''}</span><span style="display:flex;gap:6px">${(R.w||o.ab)&&canIntC(o)&&!carnetDone(id,o)?`<button class="btn sm pri" data-cint="${h(id)}">✓ Intégrer le résultat</button>`:''}${adm&&!R.w?`<button class="btn sm danger" data-cban="${h(id)}">⛔ Arrêter ce Live</button>`:''}</span></div></div>`;}).join('')}`;}
 async function banCarnet(id){if(!confirm("Arrêter ce Live du carnet ? L'appareil qui le diffuse ne pourra plus l'envoyer."))return;
   try{const r=await fetch(S.sync.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'live',key:S.sync.key,venue:S.sync.venue||'',device:S.sync.device||'',devId:S.devId,live:[],cban:id}),redirect:'follow'});const d=await r.json();
     if(!d.ok)throw new Error(d.error||'refus');S.clive=d.clive||{};toast('Live du carnet arrêté');render();}catch(e){toast('Arrêt impossible : '+(e.message||e)+' (script v10 requis)');}}
@@ -2568,7 +2588,7 @@ function renderLiveTab(){const mine=S.liveMine&&(S.myClub||S.sync.role==='ja');c
   main.innerHTML=`<h2>Live</h2>${syncReady()&&window.Notification&&Notification.permission==='default'&&lvPref()!=='off'?`<div class="bk" style="margin:0 0 10px"><span>🔔 <b>Être prévenu des nouveaux Live</b> ${lvPref()==='mine'?'de '+h(S.sync.role==='ja'?S.sync.venue||'mon lieu':S.myClub||'mon club'):''}</span><button class="btn sm pri" data-lvperm>Activer</button></div>`:''}<div class="filters">${S.myClub||S.sync.role==='ja'?`<label style="font-size:13.5px"><input type="checkbox" id="livemine"${S.liveMine?' checked':''}> Seulement ${S.sync.role==='ja'?'mon lieu ('+h(S.sync.venue)+')':h(S.myClub)}</label>`:''}
    <span class="legend" id="livestamp" style="flex:1"></span>${syncReady()?'<button class="btn sm" data-sy="live">Actualiser</button>':''}</div>
    ${syncReady()?'':'<div class="bk" style="margin:10px 0"><span>La synchronisation n\'est pas configurée : seules les parties suivies sur cet appareil apparaissent. Configurez-la dans Paramétrage pour voir tous les terrains.</span><button class="btn sm" data-gotab="data">Paramétrage</button></div>'}
-   <div style="margin-top:12px">${html}</div>${manualHTML(mine)}${carnetLiveHTML()}${upNextHTML(mine)}
+   ${carnetPendingHTML()}<div style="margin-top:12px">${html}</div>${manualHTML(mine)}${carnetLiveHTML()}${upNextHTML(mine)}
    <p class="legend">Le Live vient des appareils qui comptent les points avec le bouton « ▶ Live » sur le court. Actualisation automatique toutes les 10 secondes. Touchez une partie pour ouvrir sa rencontre.</p>`;
   liveStamp();}
 
@@ -2582,7 +2602,7 @@ function syncUI(){const b=document.getElementById('syncst');if(!b)return;if(!syn
   b.title=S.sync.err||'Synchroniser maintenant';}
 document.getElementById('syncst').addEventListener('click',()=>syncNow(true));
 document.getElementById('who').addEventListener('click',()=>{S.tab='data';save();render();window.scrollTo(0,0);});
-const APP_VERSION='2026-10-04 11:00';
+const APP_VERSION='2026-10-04 13:00';
 const DEFAULT_APP_URL='https://mrani-hub.github.io/tennis-jeunes-7q4/';
 const appUrl=()=>{const u=String(S.appUrl||'').trim();if(/^https:\/\//.test(u))return u.replace(/#.*$/,'');return /^https:$/.test(location.protocol)?location.origin+location.pathname:DEFAULT_APP_URL;};
 const inviteLink=code=>appUrl()?appUrl()+'#i='+code:'';
@@ -2962,6 +2982,8 @@ main.addEventListener('click',e=>{const t=e.target;
     for(let q=+j;q<L.length+1;q++){r.p=r.p||[];r.n=r.n||[];r.p[XB+q]=r.p[XB+q+1]||'';r.n[XB+q]=r.n[XB+q+1]||['',''];if(q<L.length+1)markDirty(id,String(XB+q));}
     r.x=L.length?JSON.stringify(L):'';markDirty(id,'x');S.ts[id]=now();save();render();toast('Partie retirée');return;}
   const cs0=t.closest('[data-cst]');if(cs0){e.preventDefault&&e.preventDefault();e.stopPropagation&&e.stopPropagation();const id=cs0.dataset.cst;S._cst=Object.assign({},S._cst,{[id]:!(S._cst||{})[id]});render();return;}
+  const ci0=t.closest('[data-cint]');if(ci0){intCarnet(ci0.dataset.cint);return;}
+  const cd0=t.closest('[data-cdis]');if(cd0){S.cdoneSt=Object.assign({},S.cdoneSt,{[cd0.dataset.cdis]:'ign'});save();render();toast('Ignoré');return;}
   const cb0=t.closest('[data-cban]');if(cb0){banCarnet(cb0.dataset.cban);return;}
   const cn0=t.closest('[data-carnet]');if(cn0){copyText(cn0.dataset.carnet);return;}
   const cw0=t.closest('[data-carnetwa]');if(cw0){doShare(`📒 Carnet de match – Championnat jeunes FRMT\nEnregistrez un match point par point (service, 1re / 2e balle, winners, fautes…) et obtenez ses statistiques. Fonctionne même sans réseau.\n👉 ${cw0.dataset.carnetwa}\nÀ la fin du match, touchez « Envoyer » pour me le transmettre.`,navigator.share?'native':'wa');return;}
