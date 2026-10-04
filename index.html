@@ -1158,10 +1158,10 @@ function renderCat(){const c=CATMAP[S.cat];
   c.matches.forEach(m=>updateCard(m.id));}
 
 function roInner(m){const r=S.res[m.id]||{};if(r.wo)return '<div>Victoire par forfait</div>';const P=PLid(m.id),e=ev(m.id);
-  const L=orderIdx(m).map(i=>{const lab=P[i],x=parts(m.cat).length;if(!String((r.p||[])[i]||'').trim()&&!isActive(S.live[m.id+'#'+i]))return '';
+  const L=orderIdx(m).map(i=>{const lab=P[i],x=parts(m.cat).length,cl=cLive(m.id,i);if(!String((r.p||[])[i]||'').trim()&&!isActive(S.live[m.id+'#'+i])&&!cl)return '';
     const sc=String((r.p||[])[i]||'').trim(),nn=effN(m,i),a=pnamesC(m.cat,m.t1,nn[0]),b=pnamesC(m.cat,m.t2,nn[1]);
     const live=isActive(S.live[m.id+'#'+i]),st=sc?partie(sc,i===x?1:2,i===x):null;
-    const res=live?`<b style="color:#e0493a">● Live ${h(liveTxt(S.live[m.id+'#'+i],replay(S.live[m.id+'#'+i])))}${(r=>r.srv?' · 🎾 '+h(srvName(m,i,r)):'')(replay(S.live[m.id+'#'+i]))}</b>`:sc?(st&&st.w?`<b>${h(fmtScore(sc))}</b>`:`<b style="color:#e0493a">● ${h(fmtScore(sc))}</b>`):'<span style="opacity:.7">à jouer</span>';
+    const res=cl&&!live?`<b style="color:#e0493a">● Live ${h(dispSc(m.id,cLiveTxt(cl)))}</b> <small>📒 carnet</small>`:live?`<b style="color:#e0493a">● Live ${h(liveTxt(S.live[m.id+'#'+i],replay(S.live[m.id+'#'+i])))}${(r=>r.srv?' · 🎾 '+h(srvName(m,i,r)):'')(replay(S.live[m.id+'#'+i]))}</b>`:sc?(st&&st.w?`<b>${h(fmtScore(sc))}</b>`:`<b style="color:#e0493a">● ${h(fmtScore(sc))}</b>`):'<span style="opacity:.7">à jouer</span>';
     const w1=st&&st.w===1,w2=st&&st.w===2;
     const A=`${w1?'<b>':''}${h(a||'…')}${w1?'</b>':''}`,B=`${w2?'<b>':''}${h(b||'…')}${w2?'</b>':''}`;return `<div>${h(lab)} : ${flipOf(m.id)?B+' – '+A:A+' – '+B} · ${flipOf(m.id)?res.replace(/(\d{1,3})-(\d{1,3})/g,'$2-$1'):res}</div>`;}).join('');return L||'<span>Résultat pas encore saisi.</span>';}
 const homeOf=id=>String((S.res[id]||{}).h||'');
@@ -1223,9 +1223,10 @@ function applyLock(el,id){const P=PLid(id),act=[];const ex=ev(id);const xb=el.qu
     const pb=el.querySelector(`.pb[data-pi="${i}"]`);if(!pb)return;const vl=!on&&valLock(id),dl=!on&&!vl&&doneLock(id,String(i)),lk=on||dl||vl;pb.classList.toggle('locked',lk);
     pb.querySelectorAll('input,select').forEach(x=>{x.disabled=lk;});const nt=pb.querySelector('[data-lk]');if(nt){nt.hidden=!lk;nt.textContent=on?'Partie en Live : saisie verrouillée pendant le comptage':vl?'Rencontre validée par le juge-arbitre : modification impossible':"Partie terminée : seuls le juge-arbitre et l'organisateur peuvent la modifier";}
     const b=pb.querySelector('[data-live]');if(b){b.hidden=dl||vl;b.textContent=on?(liveForeign(L)?'👁 Suivre':'▶ Reprendre'):'▶ Live';}});
-  el.classList.toggle('onair',act.length>0);const bd=el.querySelector('[data-lvb]');if(bd)bd.hidden=!act.length;
+  const cact=PLid(id).map((lab,i)=>{if(act.some(x=>+x.i===i))return null;const x=cLive(id,i);return x?{i,lab,x}:null;}).filter(Boolean);
+  el.classList.toggle('onair',act.length+cact.length>0);const bd=el.querySelector('[data-lvb]');if(bd)bd.hidden=!(act.length+cact.length);
   const wo=el.querySelector('select[data-k="wo"]');if(wo)wo.disabled=act.length>0||doneLock(id,'w')||valLock(id);const cl=el.querySelector('[data-clear]');if(cl)cl.disabled=act.length>0;
-  const st=el.querySelector('[data-lvs]');if(st)st.innerHTML=act.map(x=>`<div role="button" tabindex="0" data-live="${id}|${x.i}"><b>LIVE</b>${h(x.lab)} : ${h(dispSc(id,liveTxt(x.L,replay(x.L))))}${(r=>r.srv?' · 🎾 '+h(srvName(getMatch(id),x.i,r)):'')(replay(x.L))}</div>`).join('');}
+  const st=el.querySelector('[data-lvs]');if(st)st.innerHTML=act.map(x=>`<div role="button" tabindex="0" data-live="${id}|${x.i}"><b>LIVE</b>${h(x.lab)} : ${h(dispSc(id,liveTxt(x.L,replay(x.L))))}${(r=>r.srv?' · 🎾 '+h(srvName(getMatch(id),x.i,r)):'')(replay(x.L))}</div>`).join('')+cact.map(y=>`<div role="button" tabindex="0" data-gotab="live"><b>LIVE</b>${h(y.lab)} : ${h(dispSc(id,cLiveTxt(y.x)))} · 📒 carnet</div>`).join('');}
 
 function standTable(cat,pl,st){const two=cat.type==='2P';
   const rows=st.rows.map((r,i)=>{const cls=two?(i<2?'q':''):(st.complete?(i===0?'g1':i===1?'g2':''):'');
@@ -1963,7 +1964,7 @@ function renderMine(){if(syncReady()&&S.sync.role==='coach')return renderCoach()
   let html=`<div class="hero"><div class="nm"><small>Mon club</small><b>${h(S.myClub)}</b></div>
     <div class="st"><span>${k.teams.length}<small>équipes</small></span><span>${k.V}<small>victoires</small></span><span>${k.D}<small>défaites</small></span><span>${k.pp}-${k.pc}<small>parties</small></span></div>
     <div class="actions" style="margin:0"><button class="btn sm wa" data-share="all||1">Partager ses résultats</button><button class="btn sm" data-calclub>📅 Calendrier</button><button class="btn sm" data-pdf="mine">PDF du club</button><button class="btn sm" data-myclub="">Changer de club</button></div></div>`;
-  {const lv=liveList(true);html+=manualHTML(true);html+=upNextHTML(true);html+=`<h3>● Live</h3>`+(lv.on.length||lv.fin.length?lv.html:`<p class="legend" style="margin-top:0">Aucune partie de ${h(S.myClub)} en cours pour le moment.${syncReady()?'':' Configurez la synchronisation pour suivre les autres terrains.'}</p>`);}
+  {const lv=liveList(true);html+=carnetLiveHTML(true)+manualHTML(true);html+=upNextHTML(true);html+=`<h3>● Live</h3>`+(lv.on.length||lv.fin.length?lv.html:`<p class="legend" style="margin-top:0">Aucune partie de ${h(S.myClub)} en cours pour le moment.${syncReady()?'':' Configurez la synchronisation pour suivre les autres terrains.'}</p>`);}
   html+= next?`<h3>Prochaine rencontre à saisir</h3><div class="venue"><h4>${h(whenOf(next))}</h4>${prowHTML(next)}</div>`
              :`<h3>Prochaine rencontre à saisir</h3><div class="empty" style="margin-top:0">Toutes les rencontres connues de ${h(S.myClub)} sont saisies.</div>`;
   html+=`<h3>Équipes engagées</h3><div class="venue tlist">${k.teams.map(({c,t,st})=>`<button class="team" data-opencat="${c.id}"><span><b>${h(catLabel(c))}</b>${t!==S.myClub?` <small>(${h(t.replace(S.myClub,'').trim())})</small>`:''}</span><span class="pill ${st[1]}">${h(st[0])}</span></button>`).join('')}</div>`;
@@ -2536,7 +2537,7 @@ function liveList(mine){let L=liveEntries();if(mine)L=L.filter(x=>myM(x.m));
     +(fin.length?`<h3>Terminées récemment</h3><div class="lgrid">${fin.map(liveCard).join('')}</div>`:'')};}
 function manualLive(mine){const out=[];CATS.forEach(c=>{const ms=[...c.matches];if(c.type==='2P'){const F=finals(c);[F.sf1,F.sf2,F.f].forEach(m=>{if(m.t1&&m.t2)ms.push(m);});}
     ms.forEach(m=>{const r=S.res[m.id];if(!r||r.wo)return;if(mine&&!myM(m))return;const x0=parts(c).length;
-      PLid(m.id).forEach((lab,i)=>{const sc=String((r.p||[])[i]||'').trim();if(!sc||isActive(S.live[m.id+'#'+i]))return;const st=partie(sc,i===x0?1:2,i===x0);if(st&&st.w)return;out.push({m,c,i,lab,sc});});});});
+      PLid(m.id).forEach((lab,i)=>{const sc=String((r.p||[])[i]||'').trim();if(!sc||isActive(S.live[m.id+'#'+i])||cLive(m.id,i))return;const st=partie(sc,i===x0?1:2,i===x0);if(st&&st.w)return;out.push({m,c,i,lab,sc});});});});
   return out;}
 function manualHTML(mine){const L=manualLive(mine);if(!L.length)return '';
   return `<h3>● En cours, score publié au fil des sets (${L.length})</h3><div class="venue">${L.map(({m,c,i,lab,sc})=>{const nn=effN(m,i),a=pnamesC(c,m.t1,nn[0])||m.t1,b=pnamesC(c,m.t2,nn[1])||m.t2;
@@ -2545,7 +2546,7 @@ function upNext(mine){const out=[];
   CATS.forEach(c=>{const ms=[...c.matches];if(c.type==='2P'){const F=finals(c);[F.sf1,F.sf2,F.f].forEach(m=>{if(m.t1&&m.t2)ms.push(m);});}
     ms.forEach(m=>{if(mine&&!myM(m))return;const e=ev(m.id);if(e.done)return;const r=S.res[m.id]||{},x0=parts(c).length;
       orderIdx(m).forEach((i,ord)=>{if(i===x0&&!e.x)return;const n=(r.n||[])[i]||['',''];if(!String(n[0]||'').trim()||!String(n[1]||'').trim())return;
-        if(String((r.p||[])[i]||'').trim()||isActive(S.live[m.id+'#'+i]))return;out.push({m,c,i,ord,lab:PLid(m.id)[i],n});});});});
+        if(String((r.p||[])[i]||'').trim()||isActive(S.live[m.id+'#'+i])||cLive(m.id,i))return;out.push({m,c,i,ord,lab:PLid(m.id)[i],n});});});});
   return out.sort((a,b)=>(DATES.indexOf(a.m.date)+1||99)-(DATES.indexOf(b.m.date)+1||99)||timeKey(a.m,a.m.lieu).localeCompare(timeKey(b.m,b.m.lieu))||a.ord-b.ord);}
 function upNextHTML(mine){const L=upNext(mine);if(!L.length)return '';
   return `<h3>🔜 Affiches à suivre (${L.length})</h3><div class="venue">${L.slice(0,40).map(({m,c,i,lab,n})=>`<div class="prow${myM(m)?' mine':''}" role="button" tabindex="0" data-go="${m.id}" data-gocat="${c.id}">
@@ -2573,8 +2574,11 @@ function intCarnet(id){const x=(S.clive||{})[id]||(S.cdone||{})[id];if(!x)return
     applyCarnet(o,m.id,String(o.pi));S.cdoneSt=Object.assign({},S.cdoneSt,{[id]:'ok'});save();render();return;}
   if(S.sync.role!=='admin'){toast('Match hors championnat : à intégrer par l’organisateur');return;}
   showCarnetImport(o);S.cdoneSt=Object.assign({},S.cdoneSt,{[id]:'ok'});save();}
+/* Live de carnet rattaché à une partie : en cours, ou terminé mais pas encore intégré (il prime sur le score saisi en différé) */
+function cLive(id,i){const t0=Date.now();for(const x of carnetLives()){if(x.o.m!==id||String(x.o.pi)!==String(i))continue;if(t0-(x.t||0)>30*60e3)continue;if((x.R.w||x.o.ab)&&carnetDone(x.id,x.o))continue;return x;}return null;}
+const cLiveTxt=x=>x.R.w||x.o.ab?`${x.o.sc||scoreStr(x.R)}${x.o.ab?' (abandon)':''} · terminé (carnet)`:`${liveTxt(x.L,x.R)}`;
 function carnetLives(){const out=[];Object.entries(S.clive||{}).forEach(([id,x])=>{try{const o=JSON.parse(x.d);if(!o||!o.q)return;const L=decQ(o.q);if(!L)return;out.push({id,o,L,R:replay(L),t:x.t});}catch(e){}});return out.sort((a,b)=>b.t-a.t);}
-function carnetLiveHTML(){const L0=carnetLives();if(!L0.length)return '';const adm=canAdmin()&&syncReady();
+function carnetLiveHTML(mine){const L0=carnetLives().filter(x=>!mine||[x.o.A.t,x.o.B.t].some(t=>t&&isMine(t)));if(!L0.length)return '';const adm=canAdmin()&&syncReady();
   return `<h3>📒 Live des carnets de match (${L0.length})</h3><p class="legend" style="margin-top:-4px">Matchs diffusés par des parents ou entraîneurs depuis le carnet de match. Non vérifiés par l'organisateur.</p>${L0.map(({id,o,L,R,t})=>{const c=CATMAP[o.c],nm=S0=>(S0.n||[]).map((n,j)=>n+' ('+((S0.cl||[])[j]||'NC')+')').join(' / ');
     const m=o.m&&getMatch(o.m),cols=R.sets.length+(R.w?0:1);const row=(sd,S0)=>{const k=sd-1;return `<div class="lr${R.w===sd?' win':''}" style="--n:${cols}"><span class="nm">${h(nm(S0))}${!R.w&&R.srv===sd?'<span class="srvb">🎾</span>':''} <small>${h(S0.t||'')}</small></span>${R.sets.map(x=>`<span class="st">${x[k]}</span>`).join('')}${R.w?'':`<span class="st cur">${R.stb?'':R.g[k]}</span>`}<span class="${R.w?'st':'pt'}">${R.w?(R.w===sd?'✓':''):ptLabel(R,k,L)}</span></div>`;};
     return `<div class="lc${R.w?'':' on'}"><div class="lc-h"><span><b>${h(o.lab||'')}</b> · ${h(c?catLabel(c):'')}${m?' · '+h(m.t1)+' – '+h(m.t2):' · hors championnat'}</span><span class="${R.w?'done':'dot'}">${R.w?'Terminé':'Live'}</span></div>${row(1,o.A)}${row(2,o.B)}
@@ -2602,7 +2606,7 @@ function syncUI(){const b=document.getElementById('syncst');if(!b)return;if(!syn
   b.title=S.sync.err||'Synchroniser maintenant';}
 document.getElementById('syncst').addEventListener('click',()=>syncNow(true));
 document.getElementById('who').addEventListener('click',()=>{S.tab='data';save();render();window.scrollTo(0,0);});
-const APP_VERSION='2026-10-04 13:00';
+const APP_VERSION='2026-10-04 14:00';
 const DEFAULT_APP_URL='https://mrani-hub.github.io/tennis-jeunes-7q4/';
 const appUrl=()=>{const u=String(S.appUrl||'').trim();if(/^https:\/\//.test(u))return u.replace(/#.*$/,'');return /^https:$/.test(location.protocol)?location.origin+location.pathname:DEFAULT_APP_URL;};
 const inviteLink=code=>appUrl()?appUrl()+'#i='+code:'';
