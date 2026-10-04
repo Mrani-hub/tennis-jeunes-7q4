@@ -631,6 +631,8 @@ body.marqm .wosel{display:inline-block}
 #print .rp-mo svg{max-height:160px}
 .plt tr[data-plf]:hover td{background:rgba(29,78,137,.06)}
 .plt td{white-space:nowrap}.plt td.w{white-space:normal;text-align:left}
+.xwarn{background:#fff3e0;border:1px solid var(--gold);border-radius:8px;padding:8px 10px;margin:6px 0;font-size:13px}
+.xwarn .btn{margin-top:6px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -1158,7 +1160,7 @@ function renderCat(){const c=CATMAP[S.cat];
   c.matches.forEach(m=>updateCard(m.id));}
 
 function roInner(m){const r=S.res[m.id]||{};if(r.wo)return '<div>Victoire par forfait</div>';const P=PLid(m.id),e=ev(m.id);
-  const L=orderIdx(m).map(i=>{const lab=P[i],x=parts(m.cat).length,cl=cLive(m.id,i);if(!String((r.p||[])[i]||'').trim()&&!isActive(S.live[m.id+'#'+i])&&!cl)return '';
+  const L=orderIdx(m).map(i=>{const lab=P[i],x=parts(m.cat).length,cl=cLive(m.id,i);if(decHidden(m.id,i))return '';if(!String((r.p||[])[i]||'').trim()&&!isActive(S.live[m.id+'#'+i])&&!cl)return '';
     const sc=String((r.p||[])[i]||'').trim(),nn=effN(m,i),a=pnamesC(m.cat,m.t1,nn[0]),b=pnamesC(m.cat,m.t2,nn[1]);
     const live=isActive(S.live[m.id+'#'+i]),st=sc?partie(sc,i===x?1:2,i===x):null;
     const res=cl&&!live?`<b style="color:#e0493a">● Live ${h(dispSc(m.id,cLiveTxt(cl)))}</b> <small>📒 carnet</small>`:live?`<b style="color:#e0493a">● Live ${h(liveTxt(S.live[m.id+'#'+i],replay(S.live[m.id+'#'+i])))}${(r=>r.srv?' · 🎾 '+h(srvName(m,i,r)):'')(replay(S.live[m.id+'#'+i]))}</b>`:sc?(st&&st.w?`<b>${h(fmtScore(sc))}</b>`:`<b style="color:#e0493a">● ${h(fmtScore(sc))}</b>`):'<span style="opacity:.7">à jouer</span>';
@@ -1186,7 +1188,7 @@ function card(m,tag,when){const r=S.res[m.id]||{p:[],wo:''};const P=PLid(m.id);
   ${orderIdx(m).map(i=>{const p=P[i];const nm=effN(m,i),pl=planned(m,i);const dbl=i>=XB?(extrasOf(m.id)[i-XB]||{}).t==='D':/double/i.test(p);
    const side=(t,v,sd)=>{if(!dbl)return pSelect(m,t,v||'',`n${i}${sd}`,'Joueur '+t,i);const a=String(v||'').split('/');
      return `<div class="dsel pairw">${pSelect(m,t,a[0]||'',`n${i}${sd}0`,'Joueur 1 '+t,i)}${pSelect(m,t,a[1]||'',`n${i}${sd}1`,'Joueur 2 '+t,i)}<button type="button" class="pairb" data-pair="${h(JSON.stringify([`select[data-id="${m.id}"][data-k="n${i}${sd}0"]`,`select[data-id="${m.id}"][data-k="n${i}${sd}1"]`,t+' · '+p]))}">${pairLab(m.cat,t,a)}</button></div>`;};
-   return `<div class="pb" data-pi="${i}"${i===parts(m.cat).length?' data-x hidden':''}><div class="pbh">${p}${pl?'<span class="prevu">joueurs prévus</span>':''}</div><span class="lock-note" data-lk hidden>Partie en Live : saisie verrouillée pendant le comptage</span><div class="pn">${flipOf(m.id)?side(m.t2,nm[1],'b')+side(m.t1,nm[0],'a'):side(m.t1,nm[0],'a')+side(m.t2,nm[1],'b')}</div>
+   return `<div class="pb" data-pi="${i}"${i===parts(m.cat).length?' data-x hidden':''}><div class="pbh">${p}${pl?'<span class="prevu">joueurs prévus</span>':''}</div>${i===parts(m.cat).length?`<div class="xwarn" data-xw hidden>⚠️ Il n'y a plus d'égalité dans cette rencontre : cette partie décisive n'est plus nécessaire. <button class="btn sm danger" data-xdec="${m.id}">🗑 Supprimer la partie décisive</button></div>`:''}<span class="lock-note" data-lk hidden>Partie en Live : saisie verrouillée pendant le comptage</span><div class="pn">${flipOf(m.id)?side(m.t2,nm[1],'b')+side(m.t1,nm[0],'a'):side(m.t1,nm[0],'a')+side(m.t2,nm[1],'b')}</div>
     <div class="scrow"><input class="scin" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-id="${m.id}" data-k="${i}" value="${h(dispSc(m.id,(r.p||[])[i]||''))}" placeholder="Score : 6-4 3-2… (partiel accepté)" aria-label="Score ${p}"><button class="btn padb" data-pad="${m.id}|${i}" title="Pavé de scores">🔢</button><button class="btn lv" data-live="${m.id}|${i}">▶ Live</button></div>
     <select class="wosel" data-wo="${m.id}|${i}" aria-label="Forfait ou abandon ${p}"><option value="">Forfait / abandon…</option><option value="f2">Forfait de ${h(m.t1)} → partie à ${h(m.t2)}</option><option value="f1">Forfait de ${h(m.t2)} → partie à ${h(m.t1)}</option><option value="a2">Abandon de ${h(m.t1)} (score en cours complété)</option><option value="a1">Abandon de ${h(m.t2)} (score en cours complété)</option></select><span class="pr" data-pr="${i}"></span></div>`;}).join('')}
   ${syncReady()&&S.sync.role==='admin'?`<div class="xadd"><span>📲 Confier la saisie de cette rencontre</span><button class="btn sm" data-marq="${m.id}">Créer un accès marqueur</button></div>`:''}
@@ -1218,7 +1220,7 @@ function updateCard(id){const el=main.querySelector(`[data-card="${id}"]`);if(!e
 const LIVE_STALE=30*60e3;
 function isActive(L){return !!(L&&L.pts&&L.pts.length&&!replay(L).w&&Date.now()-(L.ts||0)<LIVE_STALE);}
 const liveForeign=L=>!!(L&&L.own&&L.own!==S.devId);
-function applyLock(el,id){const P=PLid(id),act=[];const ex=ev(id);const xb=el.querySelector('[data-x]');if(xb)xb.hidden=!(ex.x||String(((S.res[id]||{}).p||[])[parts(catOfId(id)).length]||'').trim());
+function applyLock(el,id){const P=PLid(id),act=[];const ex=ev(id);const xb=el.querySelector('[data-x]');if(xb){const stale=deciderStale(id),mm=getMatch(id);xb.hidden=!(ex.x||(stale&&mm&&canJA(mm)));const xw=xb.querySelector('[data-xw]');if(xw)xw.hidden=!stale;}
   P.forEach((lab,i)=>{const L=S.live[id+'#'+i],on=isActive(L);if(on)act.push({i,lab,L});
     const pb=el.querySelector(`.pb[data-pi="${i}"]`);if(!pb)return;const vl=!on&&valLock(id),dl=!on&&!vl&&doneLock(id,String(i)),lk=on||dl||vl;pb.classList.toggle('locked',lk);
     pb.querySelectorAll('input,select').forEach(x=>{x.disabled=lk;});const nt=pb.querySelector('[data-lk]');if(nt){nt.hidden=!lk;nt.textContent=on?'Partie en Live : saisie verrouillée pendant le comptage':vl?'Rencontre validée par le juge-arbitre : modification impossible':"Partie terminée : seuls le juge-arbitre et l'organisateur peuvent la modifier";}
@@ -2097,7 +2099,7 @@ function renderShare(keep){const sh=S.sh;const {text,count}=buildShare(sh.date,s
 
 /* ----- Rapport PDF ----- */
 function partsText(c,m){const r=S.res[m.id]||{};if(r.wo)return [];const P=PLid(m.id);
-  return P.map((lab,i)=>{const sc=String((r.p||[])[i]||'').trim(),x=effN(m,i);const a=pnamesC(c,m.t1,x[0]),b=pnamesC(c,m.t2,x[1]);
+  return P.map((lab,i)=>{if(decHidden(m.id,i))return '';const sc=String((r.p||[])[i]||'').trim(),x=effN(m,i);const a=pnamesC(c,m.t1,x[0]),b=pnamesC(c,m.t2,x[1]);
     if(!sc&&!a&&!b)return '';return `${lab} : ${a||'?'} – ${b||'?'}${sc?' '+fmtScore(sc):' (prévu)'}`;}).filter(Boolean);}
 function catHeadline(c){if(c.type==='2P'){const F=finals(c);if(F.champ)return `Champion : ${F.champ}`;
     const ld=pl=>{const st=standings(c,pl);return st.done?`${pl} : ${st.rows[0].t}`:'';};const l=[ld('A'),ld('B')].filter(Boolean);return l.length?'En tête, poule '+l.join(', poule '):'À jouer';}
@@ -2517,10 +2519,20 @@ function lvPanel(){const p=lvPref(),perm=window.Notification?Notification.permis
     ${perm==='default'?'<button class="btn pri" data-lvperm>Autoriser les notifications</button>':''}</div>
    <p class="legend" style="margin-top:6px">${perm==='granted'?'✓ Notifications du téléphone autorisées.':perm==='denied'?'⚠️ Notifications refusées pour cette appli : réactivez-les dans les réglages du téléphone (Notifications) ou du navigateur. En attendant, un message s\'affiche dans l\'appli.':perm==='unsupported'?'Ce téléphone ne permet pas les notifications système pour cette appli : un message s\'affiche dans l\'appli.':'Autorisez-les pour recevoir l\'alerte même quand vous êtes dans une autre appli.'}
    L'alerte arrive quand l'appli est ouverte ou en arrière-plan (dans la minute). Appli complètement fermée : pas d'alerte.</p></div>`;}
+/* partie décisive (double en super tie-break) : n'a de sens qu'en cas d'égalité ; si l'égalité disparaît après correction, elle devient « inutile » */
+const decIdx=id=>parts(catOfId(id)).length;
+function deciderStale(id){if(!isKO(id))return false;const r=S.res[id]||{},x0=decIdx(id),nn=(r.n||[])[x0]||['',''];if(ev(id).x)return false;
+  return !!(String((r.p||[])[x0]||'').trim()||String(nn[0]||'').trim()||String(nn[1]||'').trim()||isActive(S.live[id+'#'+x0])||((r.q||{})[x0]));}
+const decHidden=(id,i)=>isKO(id)&&+i===decIdx(id)&&!ev(id).x;
+function delDecider(id){const m=getMatch(id);if(!m||!canJA(m)){toast("Réservé à l'organisateur et au juge-arbitre du lieu");return;}
+  if(!confirm('Supprimer la partie décisive ? Son score et ses joueurs seront effacés (il n\u2019y a plus d\u2019égalité dans cette rencontre).'))return;
+  const r=S.res[id]=S.res[id]||{p:[],wo:'',n:[]},x0=decIdx(id),k=id+'#'+x0;r.p=r.p||[];r.p[x0]='';r.n=Array.from(r.n||[],x=>x||['','']);while(r.n.length<=x0)r.n.push(['','']);r.n[x0]=['',''];
+  if(r.q&&r.q[x0]!==undefined){r.q=Object.assign({},r.q);r.q[x0]='';}if(S.live[k]){S.live[k]=Object.assign({},S.live[k],{pts:[],w:'',ts:Date.now(),stop:1});schedLive();}
+  S.ts[id]=now();markDirty(id,String(x0));save();render();toast('Partie décisive supprimée');}
 function liveEntries(){const out=[],now_=Date.now();
   Object.entries(S.live||{}).forEach(([k,L])=>{if(!L||!L.pts||!L.pts.length)return;const [id,i]=k.split('#');const m=getMatch(id);if(!m||!m.t1||!m.t2)return;
     const R=replay(L),ts=L.ts||0;if(!R.w&&now_-ts>3*3600e3)return;if(R.w&&now_-ts>20*60e3)return;
-    if(!R.w&&finalScore(id,+i))return;
+    if(!R.w&&finalScore(id,+i))return;if(decHidden(id,i))return;
     out.push({k,id,i:+i,m,c:m.cat,L,R,ts});});
   return out.sort((a,b)=>(!!a.R.w-!!b.R.w)||b.ts-a.ts);}
 function liveCard(x){const {m,c,L,R,i}=x;const r=S.res[m.id]||{},nm=effN(m,i);const team=[m.t1,m.t2],who=[pnamesL(c,m.t1,nm[0])||m.t1,pnamesL(c,m.t2,nm[1])||m.t2];
@@ -2537,7 +2549,7 @@ function liveList(mine){let L=liveEntries();if(mine)L=L.filter(x=>myM(x.m));
     +(fin.length?`<h3>Terminées récemment</h3><div class="lgrid">${fin.map(liveCard).join('')}</div>`:'')};}
 function manualLive(mine){const out=[];CATS.forEach(c=>{const ms=[...c.matches];if(c.type==='2P'){const F=finals(c);[F.sf1,F.sf2,F.f].forEach(m=>{if(m.t1&&m.t2)ms.push(m);});}
     ms.forEach(m=>{const r=S.res[m.id];if(!r||r.wo)return;if(mine&&!myM(m))return;const x0=parts(c).length;
-      PLid(m.id).forEach((lab,i)=>{const sc=String((r.p||[])[i]||'').trim();if(!sc||isActive(S.live[m.id+'#'+i])||cLive(m.id,i))return;const st=partie(sc,i===x0?1:2,i===x0);if(st&&st.w)return;out.push({m,c,i,lab,sc});});});});
+      PLid(m.id).forEach((lab,i)=>{const sc=String((r.p||[])[i]||'').trim();if(!sc||isActive(S.live[m.id+'#'+i])||cLive(m.id,i)||decHidden(m.id,i))return;const st=partie(sc,i===x0?1:2,i===x0);if(st&&st.w)return;out.push({m,c,i,lab,sc});});});});
   return out;}
 function manualHTML(mine){const L=manualLive(mine);if(!L.length)return '';
   return `<h3>● En cours, score publié au fil des sets (${L.length})</h3><div class="venue">${L.map(({m,c,i,lab,sc})=>{const nn=effN(m,i),a=pnamesC(c,m.t1,nn[0])||m.t1,b=pnamesC(c,m.t2,nn[1])||m.t2;
@@ -2606,7 +2618,7 @@ function syncUI(){const b=document.getElementById('syncst');if(!b)return;if(!syn
   b.title=S.sync.err||'Synchroniser maintenant';}
 document.getElementById('syncst').addEventListener('click',()=>syncNow(true));
 document.getElementById('who').addEventListener('click',()=>{S.tab='data';save();render();window.scrollTo(0,0);});
-const APP_VERSION='2026-10-04 14:00';
+const APP_VERSION='2026-10-04 15:00';
 const DEFAULT_APP_URL='https://mrani-hub.github.io/tennis-jeunes-7q4/';
 const appUrl=()=>{const u=String(S.appUrl||'').trim();if(/^https:\/\//.test(u))return u.replace(/#.*$/,'');return /^https:$/.test(location.protocol)?location.origin+location.pathname:DEFAULT_APP_URL;};
 const inviteLink=code=>appUrl()?appUrl()+'#i='+code:'';
@@ -2986,6 +2998,7 @@ main.addEventListener('click',e=>{const t=e.target;
     for(let q=+j;q<L.length+1;q++){r.p=r.p||[];r.n=r.n||[];r.p[XB+q]=r.p[XB+q+1]||'';r.n[XB+q]=r.n[XB+q+1]||['',''];if(q<L.length+1)markDirty(id,String(XB+q));}
     r.x=L.length?JSON.stringify(L):'';markDirty(id,'x');S.ts[id]=now();save();render();toast('Partie retirée');return;}
   const cs0=t.closest('[data-cst]');if(cs0){e.preventDefault&&e.preventDefault();e.stopPropagation&&e.stopPropagation();const id=cs0.dataset.cst;S._cst=Object.assign({},S._cst,{[id]:!(S._cst||{})[id]});render();return;}
+  const xd0=t.closest('[data-xdec]');if(xd0){delDecider(xd0.dataset.xdec);return;}
   const ci0=t.closest('[data-cint]');if(ci0){intCarnet(ci0.dataset.cint);return;}
   const cd0=t.closest('[data-cdis]');if(cd0){S.cdoneSt=Object.assign({},S.cdoneSt,{[cd0.dataset.cdis]:'ign'});save();render();toast('Ignoré');return;}
   const cb0=t.closest('[data-cban]');if(cb0){banCarnet(cb0.dataset.cban);return;}
